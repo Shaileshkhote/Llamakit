@@ -124,8 +124,17 @@ function dnsRecordsFromVercel(
     addDnsRecord(records, record);
   }
 
+  if (recommendedRecords.length === 0 && env.VERCEL_RECOMMENDED_CNAME && !isApexDomain(hostname)) {
+    addDnsRecord(records, {
+      type: "CNAME",
+      name: dnsHostLabel(hostname),
+      value: normalizeDnsValue(env.VERCEL_RECOMMENDED_CNAME),
+      reason: `Vercel-recommended project CNAME for ${hostname}.`,
+    });
+  }
+
   const configuredBy = typeof config?.configuredBy === "string" ? config.configuredBy.toUpperCase() : "";
-  if (recommendedRecords.length === 0) {
+  if (!hasRouteRecord(records)) {
     const exactCnameTargets = findStrings(config, (value) => isExactVercelDnsTarget(value));
     for (const value of exactCnameTargets) {
       addDnsRecord(records, {
@@ -138,7 +147,7 @@ function dnsRecordsFromVercel(
   }
 
   const aTargets = findStrings(config, (value) => isRecommendedVercelARecord(value));
-  if (recommendedRecords.length === 0 && (configuredBy === "A" || (records.size === 0 && aTargets.length > 0))) {
+  if (!hasRouteRecord(records) && (configuredBy === "A" || (records.size === 0 && aTargets.length > 0))) {
     for (const value of aTargets.length ? aTargets : ["216.198.79.1", "64.29.17.1"]) {
       addDnsRecord(records, {
         type: "A",
@@ -178,6 +187,10 @@ function addDnsRecord(records: Map<string, DnsRecord>, record: DnsRecord) {
   records.set(`${record.type}:${record.name}:${record.value}`, record);
 }
 
+function hasRouteRecord(records: Map<string, DnsRecord>) {
+  return Array.from(records.values()).some((record) => record.type === "CNAME" || record.type === "A");
+}
+
 function findStrings(value: unknown, predicate: (value: string) => boolean, seen = new WeakSet<object>()): string[] {
   if (typeof value === "string") return predicate(value) ? [value.trim()] : [];
   if (!value || typeof value !== "object") return [];
@@ -204,6 +217,15 @@ function isExactVercelDnsTarget(value: string) {
 function isRecommendedVercelARecord(value: string) {
   const normalized = value.trim();
   return normalized === "216.198.79.1" || normalized === "64.29.17.1" || normalized === "76.76.21.21";
+}
+
+function normalizeDnsValue(value: string) {
+  const trimmed = value.trim();
+  return trimmed.endsWith(".") ? trimmed : `${trimmed}.`;
+}
+
+function isApexDomain(hostname: string) {
+  return hostname.split(".").length <= 2;
 }
 
 function normalizeDnsRecordName(name: string, hostname: string, type: string) {

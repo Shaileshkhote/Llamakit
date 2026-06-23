@@ -449,6 +449,7 @@ export default function SiteBuilder({ user }: { user: User }) {
     if (!attachedDomain || attachedDomain.status === "active" || !autoRefreshDns) return;
 
     let attempts = 0;
+    void refreshDomainStatus(attachedDomain.hostname, { silent: true });
     const interval = window.setInterval(() => {
       attempts += 1;
       if (attempts > 18) {
