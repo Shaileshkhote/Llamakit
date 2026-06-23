@@ -47,32 +47,32 @@ export function DashboardWorkspace({ tenant, data }: { tenant: AnalyticsSite; da
   );
 
   return (
-    <div className="grid grid-cols-[240px_minmax(0,1fr)] gap-3.5 max-[760px]:grid-cols-1">
-      <aside className="sticky top-4 grid gap-3.5 self-start max-[760px]:static">
-        <div className={`${cardClass} p-[18px]`}>
-          <p className={`${eyebrowClass} m-0`}>Data room</p>
-          <div className="mt-4 grid gap-0.5">
+    <div className="grid min-w-0 grid-cols-[240px_minmax(0,1fr)] gap-3.5 max-[1180px]:grid-cols-1">
+      <aside className="sticky top-4 grid min-w-0 gap-3.5 self-start max-[1180px]:static">
+        <div className={`${cardClass} overflow-x-clip p-[18px] max-[1180px]:sticky max-[1180px]:top-0 max-[1180px]:z-10 max-[1180px]:p-2 max-[1180px]:backdrop-blur`}>
+          <p className={`${eyebrowClass} m-0 max-[1180px]:sr-only`}>Data room</p>
+          <div className="mt-4 grid min-w-0 gap-0.5 max-[1180px]:mt-0 max-[1180px]:flex max-[1180px]:overflow-x-auto max-[1180px]:pb-1">
             {availableViews.map((item) => (
               <button
                 className={[
-                  "grid gap-1 border-0 border-l-2 border-l-transparent bg-transparent py-[11px] pl-3 pr-2.5 text-left text-[var(--muted)]",
+                  "grid gap-1 border-0 border-l-2 border-l-transparent bg-transparent py-[11px] pl-3 pr-2.5 text-left text-[var(--muted)] max-[1180px]:min-w-fit max-[1180px]:rounded-lg max-[1180px]:border max-[1180px]:border-[var(--border)] max-[1180px]:px-3 max-[1180px]:text-center",
                   view === item.id
-                    ? "border-l-[var(--text)] bg-[var(--surface-muted)] text-[var(--text)]"
-                    : "hover:border-l-[var(--text)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)]",
+                    ? "border-l-[var(--text)] bg-[var(--surface-muted)] text-[var(--text)] max-[1180px]:border-[var(--text)]"
+                    : "hover:border-l-[var(--text)] hover:bg-[var(--surface-muted)] hover:text-[var(--text)] max-[1180px]:hover:border-[var(--border-strong)]",
                 ].join(" ")}
                 key={item.id}
                 onClick={() => setView(item.id)}
                 type="button"
               >
                 <strong className="text-sm leading-[1.25] text-inherit">{item.label}</strong>
-                <span className="text-xs leading-[1.35] text-[var(--muted)]">
+                <span className="text-xs leading-[1.35] text-[var(--muted)] max-[760px]:hidden">
                   {item.description}
                 </span>
               </button>
             ))}
           </div>
         </div>
-        <div className={`${cardClass} grid gap-3 p-[18px]`}>
+        <div className={`${cardClass} grid gap-3 p-[18px] max-[1180px]:grid-cols-3 max-[640px]:grid-cols-1 max-[640px]:hidden`}>
           <p className={`${eyebrowClass} m-0`}>Snapshot</p>
           {summaryItems.map((item) => (
             <div className="grid gap-1" key={item.label}>

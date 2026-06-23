@@ -28,14 +28,14 @@ export function OverviewCards({ data }: { data: DashboardData }) {
   ].filter((card) => card.status);
 
   return (
-    <section className="grid grid-cols-12 gap-3.5 max-[760px]:grid-cols-1">
+    <section className="grid min-w-0 grid-cols-12 gap-3.5 max-[900px]:grid-cols-6 max-[640px]:grid-cols-2 max-[640px]:gap-2">
       {cards.map((card) => (
         <article
-          className="col-span-2 min-h-[124px] min-w-0 border-t border-[var(--border)] py-[18px] max-[760px]:col-span-1"
+          className="col-span-2 min-h-[124px] min-w-0 border-t border-[var(--border)] py-[18px] max-[900px]:col-span-2 max-[640px]:col-span-1 max-[640px]:min-h-[96px] max-[640px]:rounded-xl max-[640px]:border max-[640px]:bg-[var(--surface)] max-[640px]:p-3"
           key={card.label}
         >
           <span className="text-[13px] text-[var(--muted)]">{card.label}</span>
-          <strong className="mt-4 block text-[30px] leading-none">{card.value}</strong>
+          <strong className="mt-4 block text-[30px] leading-none max-[640px]:mt-3 max-[640px]:text-[22px]">{card.value}</strong>
         </article>
       ))}
     </section>

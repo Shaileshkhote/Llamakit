@@ -99,9 +99,9 @@ const selectStyles = {
 };
 
 const shellClass =
-  "lk-dashboard mx-auto w-[min(1160px,calc(100vw-40px))] pb-14 max-[760px]:w-[min(1160px,calc(100vw-24px))]";
+  "lk-dashboard mx-auto w-[min(1160px,calc(100vw-40px))] pb-14 max-[760px]:w-[min(1160px,calc(100vw-24px))] max-[640px]:w-[min(1160px,calc(100vw-20px))]";
 const topbarClass =
-  "flex items-center justify-between gap-[18px] py-[22px] max-[760px]:flex-col max-[760px]:items-start";
+  "flex items-center justify-between gap-[18px] py-[22px] max-[640px]:gap-2 max-[640px]:py-3";
 const brandClass = "inline-flex items-center gap-2.5 text-[15px] font-bold";
 const brandMarkClass =
   "grid size-[30px] place-items-center rounded-full border border-[var(--border)] bg-[var(--text)] text-xs text-[var(--surface)]";
@@ -544,16 +544,16 @@ export default function SiteBuilder({ user }: { user: User }) {
       <nav className={topbarClass}>
         <button className={`${brandClass} border-0 bg-transparent p-0`} onClick={showSites} type="button">
           <span className={brandMarkClass}>DL</span>
-          <span>LlamaKit</span>
+          <span className="max-[420px]:hidden">LlamaKit</span>
         </button>
-        <div className="relative flex flex-wrap items-center gap-2.5">
+        <div className="relative flex min-w-0 flex-wrap items-center justify-end gap-2.5 max-[640px]:gap-2">
           <ThemeToggle />
-          <ActionButton className={buttonClass} onClick={startCreateSite} testId="create-site-button">
+          <ActionButton className={`${buttonClass} max-[420px]:px-3`} onClick={startCreateSite} testId="create-site-button">
             Create site
           </ActionButton>
           <button
             aria-expanded={profileOpen}
-            className="lk-profile-button inline-flex min-h-[42px] items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] py-1.5 pl-1.5 pr-3 text-sm font-bold text-[var(--text)]"
+            className="lk-profile-button inline-flex min-h-[42px] items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] py-1.5 pl-1.5 pr-3 text-sm font-bold text-[var(--text)] max-[640px]:pr-1.5"
             data-testid="profile-menu-button"
             onClick={() => setProfileOpen((open) => !open)}
             type="button"
@@ -561,7 +561,7 @@ export default function SiteBuilder({ user }: { user: User }) {
             <span className="grid size-8 place-items-center rounded-full bg-[var(--text)] text-xs text-[var(--surface)]">
               {profileInitial}
             </span>
-            <span className="max-w-[160px] truncate">{user.name || user.email}</span>
+            <span className="max-w-[160px] truncate max-[640px]:hidden">{user.name || user.email}</span>
           </button>
           {profileOpen ? (
             <ProfileMenu
@@ -691,13 +691,13 @@ function ManageSitesView({
       />
 
       {sites.length ? (
-        <div className="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-3.5">
+        <div className="grid grid-cols-[repeat(auto-fit,minmax(260px,1fr))] gap-3.5 max-[640px]:gap-2.5">
           {sites.map((site) => {
             const domains = domainsBySite[site.slug] ?? [];
             const activeDomain = domains.find((domain) => domain.status === "active");
             return (
               <button
-                className={`${cardClass} lk-site-card grid gap-4 p-5 text-left`}
+                className={`${cardClass} lk-site-card grid gap-4 p-5 text-left max-[640px]:gap-3 max-[640px]:p-4`}
                 key={site.slug}
                 onClick={() => onOpenSite(site)}
                 type="button"
@@ -712,11 +712,11 @@ function ManageSitesView({
                   </span>
                   <StatusPill status={site.published ? "live" : "draft"} tone={site.published ? "good" : "muted"} />
                 </span>
-                <span className="grid grid-cols-2 gap-2 text-sm max-[760px]:grid-cols-1">
+                <span className="grid grid-cols-2 gap-2 text-sm max-[640px]:grid-cols-1">
                   <MetricLine label="Domain" value={activeDomain?.hostname ?? "No active domain"} />
                   <MetricLine label="Updated" value={formatDate(site.updatedAt)} />
                 </span>
-                <span className="flex flex-wrap gap-2">
+                <span className="flex flex-wrap gap-2 max-[640px]:[&>*]:flex-1">
                   <a
                     className={secondaryButtonClass}
                     href={`/sites/${site.slug}`}
@@ -794,9 +794,9 @@ function CreateSiteView({
   const maxIndex = site ? (activeDomain ? 4 : createStep === "protocol" ? 0 : 4) : 0;
 
   return (
-    <section className="grid grid-cols-12 gap-3.5 max-[900px]:grid-cols-1">
-      <aside className={`${cardClass} col-span-3 self-start p-4 max-[900px]:col-span-1`}>
-        <p className={`${eyebrowClass} m-0`}>Create site</p>
+    <section className="grid grid-cols-12 gap-3.5 max-[1180px]:grid-cols-1">
+      <aside className={`${cardClass} col-span-3 self-start p-4 max-[1180px]:col-span-1 max-[760px]:sticky max-[760px]:top-0 max-[760px]:z-10 max-[760px]:p-2`}>
+        <p className={`${eyebrowClass} m-0 max-[760px]:sr-only`}>Create site</p>
         <StepNav
           activeIndex={currentIndex}
           items={createSteps}
@@ -804,8 +804,8 @@ function CreateSiteView({
           onSelect={(step) => onStepChange(step.id as CreateStep)}
         />
       </aside>
-      <div className={`${cardClass} col-span-9 overflow-hidden max-[900px]:col-span-1`}>
-        <div className="lk-step-content grid gap-5 p-7 max-[760px]:p-5" key={createStep}>
+      <div className={`${cardClass} col-span-9 overflow-hidden max-[1180px]:col-span-1`}>
+        <div className="lk-step-content grid gap-5 p-7 max-[760px]:p-5 max-[640px]:p-4" key={createStep}>
           {createStep === "protocol" ? (
             <ProtocolStep
               isBusy={isBusy === "create-site"}
@@ -846,7 +846,7 @@ function CreateSiteView({
               showManagementActions={false}
               site={site}
             >
-              <div className="flex flex-wrap gap-2.5">
+              <div className="flex flex-wrap gap-2.5 max-[640px]:[&>*]:w-full">
                 <ActionButton className={secondaryButtonClass} onClick={onSkipDomain}>
                   Save draft without domain
                 </ActionButton>
@@ -920,9 +920,9 @@ function SiteWorkspace({
 
   return (
     <section className="grid gap-3.5">
-      <div className={`${cardClass} grid gap-4 p-5`}>
+      <div className={`${cardClass} grid gap-4 p-5 max-[640px]:p-4`}>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-3 max-[640px]:w-full">
             <SiteLogo site={site} />
             <div className="min-w-0">
               <p className={`${eyebrowClass} m-0`}>Site workspace</p>
@@ -930,7 +930,7 @@ function SiteWorkspace({
               <p className="m-0 mt-2 truncate text-sm text-[var(--muted)]">/sites/{site.slug}</p>
             </div>
           </div>
-          <div className="flex flex-wrap justify-end gap-2">
+          <div className="flex flex-wrap justify-end gap-2 max-[640px]:w-full max-[640px]:justify-start max-[640px]:[&>*]:flex-1">
             <StatusPill status={site.published ? "live" : "draft"} tone={site.published ? "good" : "muted"} />
             <StatusPill status={activeDomain?.hostname ?? "no active domain"} tone={activeDomain ? "good" : "warn"} />
             <a className={secondaryButtonClass} href={`/sites/${site.slug}`} rel="noreferrer" target="_blank">
@@ -940,26 +940,26 @@ function SiteWorkspace({
         </div>
       </div>
 
-      <div className="grid grid-cols-12 gap-3.5 max-[900px]:grid-cols-1">
-        <aside className={`${cardClass} col-span-3 self-start p-3 max-[900px]:col-span-1`}>
-          <nav className="grid gap-1">
+      <div className="grid grid-cols-12 gap-3.5 max-[1180px]:grid-cols-1">
+        <aside className={`${cardClass} col-span-3 self-start p-3 max-[1180px]:col-span-1 max-[1180px]:sticky max-[1180px]:top-0 max-[1180px]:z-10 max-[1180px]:p-2`}>
+          <nav className="grid gap-1 max-[1180px]:flex max-[1180px]:overflow-x-auto max-[1180px]:pb-1">
             {sitePanels.map((item) => (
               <button
-                className={`lk-menu-item ${panel === item.id ? "bg-[var(--surface-muted)]" : ""}`}
+                className={`lk-menu-item max-[1180px]:min-w-fit max-[1180px]:justify-center max-[1180px]:whitespace-nowrap ${panel === item.id ? "bg-[var(--surface-muted)] max-[1180px]:border-[var(--text)]" : ""}`}
                 key={item.id}
                 onClick={() => onOpenPanel(item.id)}
                 type="button"
               >
                 <span>
                   <span className="block font-bold">{item.label}</span>
-                  <span className="block text-xs text-[var(--muted)]">{item.description}</span>
+                  <span className="block text-xs text-[var(--muted)] max-[760px]:hidden">{item.description}</span>
                 </span>
               </button>
             ))}
           </nav>
         </aside>
-        <div className={`${cardClass} col-span-9 overflow-hidden max-[900px]:col-span-1`}>
-          <div className="lk-step-content grid gap-5 p-7 max-[760px]:p-5" key={panel}>
+        <div className={`${cardClass} col-span-9 overflow-hidden max-[1180px]:col-span-1`}>
+          <div className="lk-step-content grid gap-5 p-7 max-[760px]:p-5 max-[640px]:p-4" key={panel}>
             {panel === "overview" ? (
               <OverviewPanel
                 activeDomain={activeDomain}
@@ -1039,7 +1039,7 @@ function ManageDomainsView({
         action={<ActionButton className={buttonClass} onClick={onCreate}>Create site</ActionButton>}
       />
       {rows.length ? (
-        <div className={`${cardClass} overflow-hidden`}>
+        <div className={`${cardClass} overflow-hidden max-[980px]:grid max-[980px]:gap-2.5 max-[980px]:border-0 max-[980px]:bg-transparent max-[980px]:shadow-none`}>
           <div className="grid grid-cols-[1.1fr_1fr_120px_1.1fr_260px] gap-3 border-b border-[var(--border)] bg-[var(--surface-muted)] px-4 py-3 text-xs font-bold text-[var(--muted)] max-[980px]:hidden">
             <span>Hostname</span>
             <span>Site</span>
@@ -1049,21 +1049,33 @@ function ManageDomainsView({
           </div>
           {rows.map((row) => (
             <div
-              className="lk-record-row grid grid-cols-[1.1fr_1fr_120px_1.1fr_260px] items-center gap-3 border-b border-[var(--border)] px-4 py-3 text-sm last:border-b-0 max-[980px]:grid-cols-1"
+              className="lk-record-row grid grid-cols-[1.1fr_1fr_120px_1.1fr_260px] items-center gap-3 border-b border-[var(--border)] px-4 py-3 text-sm last:border-b-0 max-[980px]:grid-cols-1 max-[980px]:rounded-2xl max-[980px]:border max-[980px]:bg-[var(--surface)] max-[980px]:p-4"
               key={row.domain.hostname}
             >
-              <strong className="break-all">{row.domain.hostname}</strong>
-              <button className="w-fit text-left font-bold text-[var(--muted)]" onClick={() => onOpenSite(row.site)} type="button">
-                {row.site.displayName}
-              </button>
-              <StatusPill status={row.domain.status} tone={row.domain.status === "active" ? "good" : "warn"} />
-              <span className="min-w-0 text-xs text-[var(--muted)]">
-                {getDnsRecords(row.domain)[0]
-                  ? `${getDnsRecords(row.domain)[0].type} ${getDnsRecords(row.domain)[0].name}`
-                  : "No DNS record"}
-                {lastDomainCheck ? ` • checked ${formatTime(lastDomainCheck)}` : ""}
+              <span className="grid gap-1">
+                <span className="hidden text-xs font-bold text-[var(--muted)] max-[980px]:block">Hostname</span>
+                <strong className="break-all">{row.domain.hostname}</strong>
               </span>
-              <span className="flex flex-wrap gap-2">
+              <span className="grid gap-1">
+                <span className="hidden text-xs font-bold text-[var(--muted)] max-[980px]:block">Site</span>
+                <button className="w-fit text-left font-bold text-[var(--muted)]" onClick={() => onOpenSite(row.site)} type="button">
+                  {row.site.displayName}
+                </button>
+              </span>
+              <span className="grid gap-1">
+                <span className="hidden text-xs font-bold text-[var(--muted)] max-[980px]:block">Status</span>
+                <StatusPill status={row.domain.status} tone={row.domain.status === "active" ? "good" : "warn"} />
+              </span>
+              <span className="grid min-w-0 gap-1 text-xs text-[var(--muted)]">
+                <span className="hidden font-bold text-[var(--muted)] max-[980px]:block">DNS</span>
+                <span>
+                  {getDnsRecords(row.domain)[0]
+                    ? `${getDnsRecords(row.domain)[0].type} ${getDnsRecords(row.domain)[0].name}`
+                    : "No DNS record"}
+                  {lastDomainCheck ? ` • checked ${formatTime(lastDomainCheck)}` : ""}
+                </span>
+              </span>
+              <span className="flex flex-wrap gap-2 max-[640px]:[&>*]:flex-1">
                 <ActionButton
                   className={secondaryButtonClass}
                   loading={isBusy === `refresh-domain:${row.domain.hostname}`}
@@ -1075,7 +1087,7 @@ function ManageDomainsView({
                   Replace
                 </ActionButton>
                 <ActionButton
-                  className={secondaryButtonClass}
+                  className={`${secondaryButtonClass} max-[980px]:border-[var(--bad)]/40 max-[980px]:text-[var(--bad)]`}
                   loading={isBusy === `delete-domain:${row.domain.hostname}`}
                   onClick={() => onDelete(row)}
                 >
@@ -1161,7 +1173,7 @@ function OverviewPanel({
         <InfoCard label="Domains" value={`${domains.length}`} />
         <InfoCard label="Updated" value={formatDate(site.updatedAt)} />
       </div>
-      <div className="flex flex-wrap gap-2.5">
+      <div className="flex flex-wrap gap-2.5 max-[640px]:[&>*]:flex-1">
         <ActionButton className={buttonClass} onClick={() => onOpenPanel("deploy")}>
           Open deploy panel
         </ActionButton>
@@ -1464,7 +1476,7 @@ function DomainInstructions({
             <ActionButton className={secondaryButtonClass} onClick={onReplace}>
               Replace
             </ActionButton>
-            <ActionButton className={secondaryButtonClass} onClick={onDelete}>
+            <ActionButton className={`${secondaryButtonClass} border-[var(--bad)]/40 text-[var(--bad)]`} onClick={onDelete}>
               Delete
             </ActionButton>
           </>
@@ -1487,9 +1499,18 @@ function DnsRecords({ records }: { records: DnsRecord[] }) {
           className="lk-record-row grid grid-cols-[110px_minmax(160px,1fr)_minmax(220px,1.3fr)] border-b border-[var(--border)] text-sm last:border-b-0 max-[760px]:grid-cols-1"
           key={`${record.type}-${record.name}-${record.value}-${index}`}
         >
-          <span className="px-3 py-2 font-bold uppercase max-[760px]:pb-0">{record.type}</span>
-          <code className="break-all px-3 py-2 text-[13px] text-[var(--text)]">{record.name}</code>
-          <code className="break-all px-3 py-2 text-[13px] text-[var(--text)]">{record.value}</code>
+          <span className="px-3 py-2 font-bold uppercase max-[760px]:pb-0">
+            <span className="hidden text-xs normal-case text-[var(--muted)] max-[760px]:mb-1 max-[760px]:block">Type</span>
+            {record.type}
+          </span>
+          <code className="break-all px-3 py-2 text-[13px] text-[var(--text)]">
+            <span className="hidden font-sans text-xs text-[var(--muted)] max-[760px]:mb-1 max-[760px]:block">Name / Host</span>
+            {record.name}
+          </code>
+          <code className="break-all px-3 py-2 text-[13px] text-[var(--text)]">
+            <span className="hidden font-sans text-xs text-[var(--muted)] max-[760px]:mb-1 max-[760px]:block">Value</span>
+            {record.value}
+          </code>
           {record.reason ? (
             <p className="col-span-3 m-0 border-t border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)] max-[760px]:col-span-1">
               {record.reason}
@@ -1515,7 +1536,7 @@ function ProfileMenu({
   user: User;
 }) {
   return (
-    <div className="lk-profile-menu absolute right-0 top-[calc(100%+10px)] z-20 grid w-[300px] gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2.5 max-[760px]:left-0 max-[760px]:right-auto max-[760px]:w-[min(320px,calc(100vw-24px))]">
+    <div className="lk-profile-menu absolute right-0 top-[calc(100%+10px)] z-20 grid w-[300px] gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2.5 max-[640px]:fixed max-[640px]:left-2.5 max-[640px]:right-2.5 max-[640px]:top-[62px] max-[640px]:w-auto">
       <div className="rounded-xl bg-[var(--surface-muted)] p-3">
         <p className="m-0 text-xs font-bold text-[var(--muted)]">Signed in as</p>
         <p className="m-0 mt-1 truncate text-sm font-bold">{user.name || user.email}</p>
@@ -1582,13 +1603,13 @@ function DashboardHero({
   title: string;
 }) {
   return (
-    <section className="flex flex-wrap items-end justify-between gap-4 py-[18px] pb-[10px]">
+    <section className="flex flex-wrap items-end justify-between gap-4 py-[18px] pb-[10px] max-[640px]:py-3">
       <div>
         <p className={eyebrowClass}>{eyebrow}</p>
-        <h1 className="mt-2 max-w-[840px] text-[clamp(38px,5vw,58px)] leading-[0.98] tracking-normal max-[760px]:text-[clamp(34px,12vw,46px)]">
+        <h1 className="mt-2 max-w-[840px] text-[clamp(38px,5vw,58px)] leading-[0.98] tracking-normal max-[760px]:text-[clamp(34px,12vw,46px)] max-[640px]:text-[34px]">
           {title}
         </h1>
-        <p className="mt-4 max-w-[650px] text-[18px] leading-[1.6] text-[var(--muted)] max-[760px]:text-[17px]">
+        <p className="mt-4 max-w-[650px] text-[18px] leading-[1.6] text-[var(--muted)] max-[760px]:text-[17px] max-[640px]:mt-3 max-[640px]:text-[15px]">
           {copy}
         </p>
       </div>
@@ -1619,14 +1640,14 @@ function StepNav({
   onSelect: (item: { id: string; label: string; description: string }, index: number) => void;
 }) {
   return (
-    <nav aria-label="Create site steps" className="mt-4 grid gap-0">
+    <nav aria-label="Create site steps" className="mt-4 grid gap-0 max-[760px]:mt-0 max-[760px]:flex max-[760px]:overflow-x-auto max-[760px]:pb-1">
       {items.map((item, index) => (
         <button
           aria-current={activeIndex === index ? "step" : undefined}
           className={[
-            "relative grid min-h-[76px] grid-cols-[24px_1fr] gap-3 rounded-[10px] border-0 bg-transparent py-2.5 pl-0 pr-2.5 text-left text-[var(--muted)]",
+            "relative grid min-h-[76px] grid-cols-[24px_1fr] gap-3 rounded-[10px] border-0 bg-transparent py-2.5 pl-0 pr-2.5 text-left text-[var(--muted)] max-[760px]:min-h-[50px] max-[760px]:min-w-[132px] max-[760px]:grid-cols-1 max-[760px]:justify-items-center max-[760px]:border max-[760px]:border-[var(--border)] max-[760px]:px-3 max-[760px]:text-center",
             index < items.length - 1
-              ? "after:absolute after:bottom-[-34px] after:left-[11px] after:top-[34px] after:w-px after:bg-[var(--border)] after:content-['']"
+              ? "after:absolute after:bottom-[-34px] after:left-[11px] after:top-[34px] after:w-px after:bg-[var(--border)] after:content-[''] max-[760px]:after:bottom-auto max-[760px]:after:left-[calc(50%+18px)] max-[760px]:after:right-[-18px] max-[760px]:after:top-[20px] max-[760px]:after:h-px max-[760px]:after:w-auto"
               : "",
             index < activeIndex ? "after:bg-[var(--text)]" : "",
             activeIndex === index ? "text-[var(--text)]" : "",
@@ -1637,12 +1658,12 @@ function StepNav({
           onClick={() => onSelect(item, index)}
           type="button"
         >
-          <span className={`relative z-[1] mt-1 grid size-6 place-items-center rounded-full border bg-[var(--surface)] ${activeIndex >= index ? "border-[var(--text)]" : "border-[var(--border)]"}`}>
+          <span className={`relative z-[1] mt-1 grid size-6 place-items-center rounded-full border bg-[var(--surface)] max-[760px]:mt-0 ${activeIndex >= index ? "border-[var(--text)]" : "border-[var(--border)]"}`}>
             <span className={`block size-2 rounded-full ${activeIndex >= index ? "bg-[var(--text)]" : "bg-[var(--border)]"}`} />
           </span>
-          <span className="grid gap-1.5">
+          <span className="grid gap-1.5 max-[760px]:gap-0.5">
             <strong className="text-sm leading-[1.25] text-inherit">{item.label}</strong>
-            <span className="text-xs leading-[1.35] text-[var(--muted)]">{item.description}</span>
+            <span className="text-xs leading-[1.35] text-[var(--muted)] max-[760px]:hidden">{item.description}</span>
           </span>
         </button>
       ))}

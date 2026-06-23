@@ -49,8 +49,8 @@ export function ProtocolHeader({ tenant, data }: { tenant: AnalyticsSite; data: 
   const launchUrl = knownLinks.app ?? websiteUrl;
 
   return (
-    <header className="py-[18px] pb-[22px]">
-      <div className="mb-3.5 flex items-center justify-between gap-[18px] border-b border-[var(--border)] pb-[18px] max-[760px]:flex-col max-[760px]:items-start">
+    <header className="min-w-0 py-[18px] pb-[22px]">
+      <div className="mb-3.5 flex min-w-0 items-center justify-between gap-[18px] border-b border-[var(--border)] pb-[18px] max-[900px]:flex-col max-[900px]:items-start">
         <a
           className="inline-flex items-center gap-2.5 text-[15px] font-bold text-[var(--text)]"
           href={websiteUrl ?? `/sites/${tenant.slug}`}
@@ -70,14 +70,14 @@ export function ProtocolHeader({ tenant, data }: { tenant: AnalyticsSite; data: 
         </a>
 
         <div
-          className="flex flex-wrap items-center gap-x-4 gap-y-2 text-[13px] font-semibold text-[var(--muted)] max-[760px]:w-full max-[760px]:gap-3.5"
+          className="flex min-w-0 max-w-full flex-wrap items-center gap-x-4 gap-y-2 text-[13px] font-semibold text-[var(--muted)] max-[900px]:w-full max-[640px]:overflow-x-auto max-[640px]:flex-nowrap max-[640px]:pb-1"
           aria-label={`${tenant.displayName} links`}
         >
           <ThemeToggle />
           {links.map((link) =>
             link.href ? (
               <a
-                className="inline-flex items-center gap-[7px] whitespace-nowrap text-inherit hover:text-[var(--text)] [&_svg]:size-[17px] [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-2 [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]"
+                className="inline-flex min-h-[34px] shrink-0 items-center gap-[7px] whitespace-nowrap text-inherit hover:text-[var(--text)] max-[640px]:rounded-lg max-[640px]:border max-[640px]:border-[var(--border)] max-[640px]:bg-[var(--surface-muted)] max-[640px]:px-3 [&_svg]:size-[17px] [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-2 [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]"
                 href={link.href}
                 key={link.label}
                 target="_blank"
@@ -90,7 +90,7 @@ export function ProtocolHeader({ tenant, data }: { tenant: AnalyticsSite; data: 
           )}
           {launchUrl ? (
             <a
-              className="inline-flex min-h-[34px] items-center gap-2 whitespace-nowrap rounded-lg bg-[var(--text)] px-[13px] font-bold text-[var(--surface)] max-[760px]:justify-center [&_svg]:size-[17px] [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-2 [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]"
+              className="inline-flex min-h-[34px] shrink-0 items-center gap-2 whitespace-nowrap rounded-lg bg-[var(--text)] px-[13px] font-bold text-[var(--surface)] max-[760px]:justify-center [&_svg]:size-[17px] [&_svg]:fill-none [&_svg]:stroke-current [&_svg]:stroke-2 [&_svg]:[stroke-linecap:round] [&_svg]:[stroke-linejoin:round]"
               href={launchUrl}
               target="_blank"
               rel="noreferrer"
@@ -102,7 +102,7 @@ export function ProtocolHeader({ tenant, data }: { tenant: AnalyticsSite; data: 
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-[var(--soft)]">
+      <div className="flex min-w-0 flex-wrap items-center gap-3 text-xs font-semibold text-[var(--soft)]">
         <span>Project analytics</span>
         <StatusBadge status={latest ? "ok" : "stale"}>
           Fresh as of {formatTimestamp(latest)}

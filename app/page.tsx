@@ -8,64 +8,64 @@ const protocolOrbit = [
   {
     logo: "https://icons.llamao.fi/icons/protocols/uniswap",
     name: "Uniswap",
-    nodeVars: "[--delay:0ms] [--tone:#ec4899] [--x:10%] [--y:20%]",
-    packetVars: "[--delay:0ms] [--tone:#ec4899] [--tx:199px] [--ty:104px] [--x:10%] [--y:20%]",
+    nodeVars: "[--delay:0ms] [--tone:#ec4899] [--x:10%] [--y:20%] [--mx:6%] [--my:22%] [--ix:9%] [--iy:24%]",
+    packetVars: "[--delay:0ms] [--tone:#ec4899] [--tx:199px] [--ty:104px] [--mtx:145px] [--mty:90px] [--itx:182px] [--ity:104px] [--x:10%] [--y:20%] [--mx:6%] [--my:22%] [--ix:9%] [--iy:24%]",
   },
   {
     logo: "https://icons.llamao.fi/icons/protocols/aave",
     name: "Aave",
-    nodeVars: "[--delay:-520ms] [--tone:#8b5cf6] [--x:84%] [--y:21%]",
+    nodeVars: "[--delay:-520ms] [--tone:#8b5cf6] [--x:84%] [--y:21%] [--mx:82%] [--my:21%] [--ix:82%] [--iy:24%]",
     packetVars:
-      "[--delay:-520ms] [--tone:#8b5cf6] [--tx:-215px] [--ty:100px] [--x:84%] [--y:21%]",
+      "[--delay:-520ms] [--tone:#8b5cf6] [--tx:-215px] [--ty:100px] [--mtx:-128px] [--mty:90px] [--itx:-182px] [--ity:104px] [--x:84%] [--y:21%] [--mx:82%] [--my:21%] [--ix:82%] [--iy:24%]",
   },
   {
     logo: "https://icons.llamao.fi/icons/protocols/spark",
     name: "Spark",
-    nodeVars: "[--delay:-1040ms] [--tone:#ff5a1f] [--x:9%] [--y:56%]",
+    nodeVars: "[--delay:-1040ms] [--tone:#ff5a1f] [--x:9%] [--y:56%] [--mx:8%] [--my:50%] [--ix:10%] [--iy:52%]",
     packetVars:
-      "[--delay:-1040ms] [--tone:#ff5a1f] [--tx:205px] [--ty:-51px] [--x:9%] [--y:56%]",
+      "[--delay:-1040ms] [--tone:#ff5a1f] [--tx:205px] [--ty:-51px] [--mtx:142px] [--mty:-10px] [--itx:180px] [--ity:-16px] [--x:9%] [--y:56%] [--mx:8%] [--my:50%] [--ix:10%] [--iy:52%]",
   },
   {
     logo: "https://icons.llamao.fi/icons/protocols/jupiter",
     name: "Jupiter",
-    nodeVars: "[--delay:-1560ms] [--tone:#10b981] [--x:88%] [--y:53%]",
+    nodeVars: "[--delay:-1560ms] [--tone:#10b981] [--x:88%] [--y:53%] [--mx:85%] [--my:49%] [--ix:84%] [--iy:51%]",
     packetVars:
-      "[--delay:-1560ms] [--tone:#10b981] [--tx:-238px] [--ty:-38px] [--x:88%] [--y:53%]",
+      "[--delay:-1560ms] [--tone:#10b981] [--tx:-238px] [--ty:-38px] [--mtx:-140px] [--mty:-6px] [--itx:-184px] [--ity:-12px] [--x:88%] [--y:53%] [--mx:85%] [--my:49%] [--ix:84%] [--iy:51%]",
   },
   {
     logo: "https://icons.llamao.fi/icons/protocols/pancakeswap",
     name: "PancakeSwap",
-    nodeVars: "[--delay:-2080ms] [--tone:#f59e0b] [--x:24%] [--y:82%]",
+    nodeVars: "[--delay:-2080ms] [--tone:#f59e0b] [--x:24%] [--y:82%] [--mx:19%] [--my:77%] [--ix:22%] [--iy:78%]",
     packetVars:
-      "[--delay:-2080ms] [--tone:#f59e0b] [--tx:121px] [--ty:-163px] [--x:24%] [--y:82%]",
+      "[--delay:-2080ms] [--tone:#f59e0b] [--tx:121px] [--ty:-163px] [--mtx:105px] [--mty:-92px] [--itx:122px] [--ity:-156px] [--x:24%] [--y:82%] [--mx:19%] [--my:77%] [--ix:22%] [--iy:78%]",
   },
   {
     logo: "https://icons.llamao.fi/icons/protocols/lido",
     name: "Lido",
-    nodeVars: "[--delay:-2600ms] [--tone:#0ea5e9] [--x:84%] [--y:88%]",
+    nodeVars: "[--delay:-2600ms] [--tone:#0ea5e9] [--x:84%] [--y:88%] [--mx:79%] [--my:77%] [--ix:78%] [--iy:78%]",
     packetVars:
-      "[--delay:-2600ms] [--tone:#0ea5e9] [--tx:-215px] [--ty:-188px] [--x:84%] [--y:88%]",
+      "[--delay:-2600ms] [--tone:#0ea5e9] [--tx:-215px] [--ty:-188px] [--mtx:-110px] [--mty:-92px] [--itx:-122px] [--ity:-156px] [--x:84%] [--y:88%] [--mx:79%] [--my:77%] [--ix:78%] [--iy:78%]",
   },
   {
     logo: "https://icons.llamao.fi/icons/protocols/morpho",
     name: "Morpho",
-    nodeVars: "[--delay:-3120ms] [--tone:#2563eb] [--x:53%] [--y:8%]",
+    nodeVars: "[--delay:-3120ms] [--tone:#2563eb] [--x:53%] [--y:8%] [--mx:49%] [--my:7%] [--ix:50%] [--iy:9%]",
     packetVars:
-      "[--delay:-3120ms] [--tone:#2563eb] [--tx:-42px] [--ty:156px] [--x:53%] [--y:8%]",
+      "[--delay:-3120ms] [--tone:#2563eb] [--tx:-42px] [--ty:156px] [--mtx:0px] [--mty:138px] [--itx:0px] [--ity:166px] [--x:53%] [--y:8%] [--mx:49%] [--my:7%] [--ix:50%] [--iy:9%]",
   },
   {
     logo: "https://icons.llamao.fi/icons/protocols/sky",
     name: "Sky",
-    nodeVars: "[--delay:-3640ms] [--tone:#0ea5e9] [--x:34%] [--y:30%]",
+    nodeVars: "[--delay:-3640ms] [--tone:#0ea5e9] [--x:34%] [--y:30%] [--mx:29%] [--my:29%] [--ix:31%] [--iy:31%]",
     packetVars:
-      "[--delay:-3640ms] [--tone:#0ea5e9] [--tx:65px] [--ty:61px] [--x:34%] [--y:30%]",
+      "[--delay:-3640ms] [--tone:#0ea5e9] [--tx:65px] [--ty:61px] [--mtx:72px] [--mty:64px] [--itx:88px] [--ity:70px] [--x:34%] [--y:30%] [--mx:29%] [--my:29%] [--ix:31%] [--iy:31%]",
   },
   {
     logo: "https://icons.llamao.fi/icons/protocols/hyperliquid",
     name: "Hyperliquid",
-    nodeVars: "[--delay:-4160ms] [--tone:#10b981] [--x:58%] [--y:76%]",
+    nodeVars: "[--delay:-4160ms] [--tone:#10b981] [--x:58%] [--y:76%] [--mx:57%] [--my:83%] [--ix:54%] [--iy:87%]",
     packetVars:
-      "[--delay:-4160ms] [--tone:#10b981] [--tx:-70px] [--ty:-137px] [--x:58%] [--y:76%]",
+      "[--delay:-4160ms] [--tone:#10b981] [--tx:-70px] [--ty:-137px] [--mtx:-28px] [--mty:-108px] [--itx:-32px] [--ity:-184px] [--x:58%] [--y:76%] [--mx:57%] [--my:83%] [--ix:54%] [--iy:87%]",
   },
 ];
 
@@ -104,8 +104,8 @@ export default async function HomePage() {
         </div>
       </nav>
 
-      <section className="lk-home-hero py-[58px] pb-16">
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(500px,560px)] items-center gap-[clamp(34px,5vw,72px)] max-[760px]:grid-cols-1">
+      <section className="lk-home-hero py-[58px] pb-16 max-[640px]:py-7 max-[640px]:pb-9">
+        <div className="grid grid-cols-[minmax(0,1fr)_minmax(500px,560px)] items-center gap-[clamp(34px,5vw,72px)] max-[1180px]:grid-cols-1 max-[900px]:gap-8 max-[640px]:gap-4">
           <div className="min-w-0">
             <p className="lk-home-kicker text-[13px] font-semibold text-[var(--muted)]">
               Analytics sites for protocols
@@ -113,7 +113,7 @@ export default async function HomePage() {
             <h1 className="lk-hero-title mt-0 mb-0 max-w-[720px] text-balance text-[clamp(46px,5.8vw,72px)] leading-[0.98] tracking-normal max-[760px]:text-[clamp(38px,11vw,52px)]">
               Launch a metrics dashboard without building the data stack
             </h1>
-            <p className="lk-hero-copy mt-5 max-w-[650px] text-[18px] leading-[1.6] text-[var(--muted)] max-[760px]:text-[17px] max-[760px]:leading-[1.55]">
+            <p className="lk-hero-copy mt-5 max-w-[650px] text-[18px] leading-[1.6] text-[var(--muted)] max-[760px]:text-[17px] max-[760px]:leading-[1.55] max-[640px]:mt-4 max-[640px]:text-[15px]">
               LlamaKit gives teams a hosted analytics site powered by DefiLlama-verified data
               endpoints, so they can publish TVL, volume, fees, revenue, and source provenance
               without coding the ingestion layer or charting system themselves.
@@ -130,7 +130,7 @@ export default async function HomePage() {
 
           <div className="lk-data-orbit" aria-label="DefiLlama verified data network">
             <span className="lk-data-orbit-aura" />
-            <svg aria-hidden="true" className="lk-data-orbit-lines" viewBox="0 0 560 430">
+            <svg aria-hidden="true" className="lk-data-orbit-lines" preserveAspectRatio="none" viewBox="0 0 560 430">
               <path d="M81 111 C148 120 216 164 280 215" />
               <path d="M495 115 C416 124 340 164 280 215" />
               <path d="M75 266 C148 252 216 230 280 215" />

@@ -16,13 +16,14 @@ export default async function AnalyticsSitePage({ params }: { params: Promise<{ 
 
   return (
     <main
+      className="overflow-x-clip"
       style={
         {
           "--accent": site.accentColor,
         } as React.CSSProperties
       }
     >
-      <div className="mx-auto grid w-[min(1160px,calc(100vw-40px))] gap-3.5 py-[18px] pb-8 max-[760px]:w-[min(1160px,calc(100vw-24px))]">
+      <div className="mx-auto grid min-w-0 w-[min(1160px,calc(100vw-40px))] gap-3.5 overflow-x-clip py-[18px] pb-8 max-[760px]:w-[min(1160px,calc(100vw-24px))]">
         <ProtocolHeader tenant={site} data={data} />
         <DashboardWorkspace tenant={site} data={data} />
         <footer className="text-xs text-[var(--soft)]">

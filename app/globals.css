@@ -248,6 +248,7 @@ textarea {
 .lk-home {
   position: relative;
   isolation: isolate;
+  overflow-x: clip;
 }
 
 .lk-home::before {
@@ -331,6 +332,7 @@ textarea {
   position: relative;
   contain: layout paint style;
   min-height: 430px;
+  width: 100%;
   background:
     radial-gradient(ellipse at 52% 50%, rgba(17, 17, 17, 0.12), transparent 17%),
     radial-gradient(ellipse at 52% 50%, rgba(37, 99, 235, 0.12), transparent 42%),
@@ -376,8 +378,8 @@ textarea {
 
 .lk-data-orbit-aura {
   position: absolute;
-  top: 88px;
-  left: 162px;
+  top: 50%;
+  left: 50%;
   width: 240px;
   height: 240px;
   border-radius: 999px;
@@ -399,6 +401,7 @@ textarea {
   filter: blur(20px);
   opacity: 0.72;
   animation: lk-aura-spin 18s linear infinite;
+  transform: translate3d(-50%, -50%, 0) scale(0.96);
 }
 
 .lk-data-orbit-lines {
@@ -658,10 +661,10 @@ textarea {
 
 @keyframes lk-aura-spin {
   from {
-    transform: rotate(0deg) scale(0.96);
+    transform: translate3d(-50%, -50%, 0) rotate(0deg) scale(0.96);
   }
   to {
-    transform: rotate(360deg) scale(0.96);
+    transform: translate3d(-50%, -50%, 0) rotate(360deg) scale(0.96);
   }
 }
 
@@ -699,20 +702,30 @@ textarea {
 
 @media (max-width: 760px) {
   .lk-data-orbit {
-    min-height: 360px;
-    max-width: 390px;
-    margin: 10px auto 0;
+    min-height: 345px;
+    max-width: min(360px, 100%);
+    margin: 0 auto;
+    background:
+      radial-gradient(circle at 50% 50%, rgba(17, 17, 17, 0.11), transparent 18%),
+      radial-gradient(circle at 50% 50%, rgba(37, 99, 235, 0.12), transparent 52%),
+      radial-gradient(circle at 46% 55%, rgba(236, 72, 153, 0.08), transparent 46%),
+      radial-gradient(circle at 58% 44%, rgba(14, 165, 233, 0.08), transparent 44%);
+  }
+
+  :root[data-theme="dark"] .lk-data-orbit {
+    background:
+      radial-gradient(circle at 50% 50%, rgba(255, 255, 255, 0.12), transparent 18%),
+      radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.14), transparent 52%),
+      radial-gradient(circle at 46% 55%, rgba(236, 72, 153, 0.09), transparent 46%),
+      radial-gradient(circle at 58% 44%, rgba(14, 165, 233, 0.08), transparent 44%);
   }
 
   .lk-data-orbit-aura {
-    top: 76px;
-    left: 78px;
-    width: 190px;
-    height: 190px;
+    width: 176px;
+    height: 176px;
   }
 
   .lk-data-core {
-    left: 50%;
     width: 58px;
     height: 58px;
   }
@@ -728,6 +741,8 @@ textarea {
   }
 
   .lk-orbit-protocol-node {
+    top: var(--my);
+    left: var(--mx);
     width: 40px;
     height: 40px;
     box-shadow: 0 8px 18px rgba(17, 17, 17, 0.07);
@@ -739,8 +754,68 @@ textarea {
   }
 
   .lk-data-packet {
+    top: calc(var(--my) + 20px);
+    left: calc(var(--mx) + 20px);
+    --tx: var(--mtx);
+    --ty: var(--mty);
     width: 5px;
     height: 5px;
+  }
+
+  .lk-data-orbit-lines path:nth-child(1) {
+    d: path("M33 92 C91 104 132 137 180 172");
+  }
+
+  .lk-data-orbit-lines path:nth-child(2) {
+    d: path("M312 89 C266 101 222 135 180 172");
+  }
+
+  .lk-data-orbit-lines path:nth-child(3) {
+    d: path("M40 187 C89 184 131 177 180 172");
+  }
+
+  .lk-data-orbit-lines path:nth-child(4) {
+    d: path("M315 184 C265 182 224 176 180 172");
+  }
+
+  .lk-data-orbit-lines path:nth-child(5) {
+    d: path("M86 287 C121 248 150 207 180 172");
+  }
+
+  .lk-data-orbit-lines path:nth-child(6) {
+    d: path("M284 287 C244 250 212 206 180 172");
+  }
+
+  .lk-data-orbit-lines path:nth-child(7) {
+    d: path("M180 46 C180 93 180 132 180 172");
+  }
+
+  .lk-data-orbit-lines path:nth-child(8) {
+    d: path("M117 113 C138 132 158 152 180 172");
+  }
+
+  .lk-data-orbit-lines path:nth-child(9) {
+    d: path("M197 302 C195 255 188 208 180 172");
+  }
+}
+
+@media (min-width: 761px) and (max-width: 1180px) {
+  .lk-data-orbit {
+    min-height: 410px;
+    max-width: 620px;
+    margin: 0 auto;
+  }
+
+  .lk-orbit-protocol-node {
+    top: var(--iy);
+    left: var(--ix);
+  }
+
+  .lk-data-packet {
+    top: calc(var(--iy) + 25px);
+    left: calc(var(--ix) + 25px);
+    --tx: var(--itx);
+    --ty: var(--ity);
   }
 }
 

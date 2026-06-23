@@ -58,17 +58,19 @@ export function YieldTable({ pools }: { pools: YieldPool[] }) {
 
   if (pools.length === 0) return null;
 
+  const visibleRows = table.getRowModel().rows.slice(0, 20);
+
   return (
-    <section className="min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5">
+    <section className="min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 max-[640px]:p-3.5">
       <div className="flex flex-wrap justify-between gap-2.5">
         <div>
           <p className="m-0 text-[13px] font-semibold text-[var(--muted)]">Pools</p>
           <h2 className="mb-0 mt-1.5 text-2xl">Yield opportunities</h2>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-2 max-[640px]:w-full">
           <input
             aria-label="Search yield pools"
-            className="min-h-[38px] min-w-[180px] rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 text-[13px] text-[var(--text)]"
+            className="min-h-[38px] min-w-[180px] rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] px-3 text-[13px] text-[var(--text)] max-[640px]:w-full"
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search pools"
             value={query}
@@ -83,7 +85,37 @@ export function YieldTable({ pools }: { pools: YieldPool[] }) {
           </label>
         </div>
       </div>
-      <div className="mt-3 overflow-x-auto">
+      <div className="mt-3 hidden gap-2.5 max-[640px]:grid">
+        {visibleRows.map((row) => {
+          const pool = row.original;
+          return (
+            <article className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3" key={row.id}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <strong className="block truncate">{pool.symbol}</strong>
+                  <span className="text-xs text-[var(--muted)]">{pool.project} · {pool.chain}</span>
+                </div>
+                <strong>{formatPercent(pool.apy)}</strong>
+              </div>
+              <dl className="mt-3 grid grid-cols-3 gap-2 text-[13px]">
+                <div>
+                  <dt className="text-[var(--muted)]">TVL</dt>
+                  <dd className="m-0 mt-1 font-bold">{formatUsd(pool.tvlUsd)}</dd>
+                </div>
+                <div>
+                  <dt className="text-[var(--muted)]">Base</dt>
+                  <dd className="m-0 mt-1 font-bold">{formatPercent(pool.apyBase)}</dd>
+                </div>
+                <div>
+                  <dt className="text-[var(--muted)]">Reward</dt>
+                  <dd className="m-0 mt-1 font-bold">{formatPercent(pool.apyReward)}</dd>
+                </div>
+              </dl>
+            </article>
+          );
+        })}
+      </div>
+      <div className="mt-3 overflow-x-auto max-[640px]:hidden">
         <table className="min-w-[720px] w-full border-collapse text-[13px]">
           <thead>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -101,10 +133,7 @@ export function YieldTable({ pools }: { pools: YieldPool[] }) {
             ))}
           </thead>
           <tbody>
-            {table
-              .getRowModel()
-              .rows.slice(0, 20)
-              .map((row) => (
+            {visibleRows.map((row) => (
                 <tr className="border-t border-[var(--border)]" key={row.id}>
                   {row.getVisibleCells().map((cell) => (
                     <td className="whitespace-nowrap px-2 py-2.5" key={cell.id}>

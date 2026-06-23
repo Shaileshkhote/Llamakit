@@ -66,14 +66,38 @@ export function EconomicsTable({
 
   return (
     <section
-      className={`min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] ${compact ? "p-[18px]" : "p-5"}`}
+      className={`min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] ${compact ? "p-[18px]" : "p-5"} max-[640px]:p-3.5`}
     >
       <p className="m-0 text-[13px] font-semibold text-[var(--muted)]">Financials</p>
       <h2 className="mb-1 mt-1.5 text-2xl">Protocol economics</h2>
       <p className="mb-3.5 mt-0 text-[13px] text-[var(--muted)]">
         Simplified fee and revenue view. This is not a complete income statement.
       </p>
-      <table className="w-full border-collapse text-[13px]">
+      <div className="hidden gap-2.5 max-[640px]:grid">
+        {rows.map((row) => (
+          <article className="rounded-xl border border-[var(--border)] bg-[var(--surface-muted)] p-3" key={row.label}>
+            <div className="mb-2 flex items-center justify-between">
+              <strong>{row.label}</strong>
+              <span className="text-xs text-[var(--muted)]">Period</span>
+            </div>
+            <dl className="grid grid-cols-3 gap-2 text-[13px]">
+              <div>
+                <dt className="text-[var(--muted)]">Fees</dt>
+                <dd className="m-0 mt-1 font-bold">{formatUsd(row.fees)}</dd>
+              </div>
+              <div>
+                <dt className="text-[var(--muted)]">Rev</dt>
+                <dd className="m-0 mt-1 font-bold">{formatUsd(row.revenue)}</dd>
+              </div>
+              <div>
+                <dt className="text-[var(--muted)]">Holder</dt>
+                <dd className="m-0 mt-1 font-bold">{formatUsd(row.holdersRevenue)}</dd>
+              </div>
+            </dl>
+          </article>
+        ))}
+      </div>
+      <table className="w-full border-collapse text-[13px] max-[640px]:hidden">
         <thead>
           {table.getHeaderGroups().map((headerGroup) => (
             <tr key={headerGroup.id}>

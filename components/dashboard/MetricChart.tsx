@@ -9,22 +9,25 @@ import type { ChartMetricKey, DashboardData, MetricSeries } from "@/types/metric
 const metricOptions: Array<{
   key: ChartMetricKey;
   label: string;
+  shortLabel: string;
   color: string;
   dotClass: string;
   render: "bar" | "line";
 }> = [
-  { key: "tvl", label: "TVL", color: "#111111", dotClass: "bg-[var(--text)]", render: "line" },
+  { key: "tvl", label: "TVL", shortLabel: "TVL", color: "#111111", dotClass: "bg-[var(--text)]", render: "line" },
   {
     key: "dexVolume",
     label: "DEX Volume",
+    shortLabel: "Vol",
     color: "#2563eb",
     dotClass: "bg-[#2563eb]",
     render: "bar",
   },
-  { key: "fees", label: "Fees", color: "#16a34a", dotClass: "bg-[#16a34a]", render: "bar" },
+  { key: "fees", label: "Fees", shortLabel: "Fees", color: "#16a34a", dotClass: "bg-[#16a34a]", render: "bar" },
   {
     key: "revenue",
     label: "Revenue",
+    shortLabel: "Rev",
     color: "#f97316",
     dotClass: "bg-[#f97316]",
     render: "bar",
@@ -32,6 +35,7 @@ const metricOptions: Array<{
   {
     key: "holdersRevenue",
     label: "Holder Revenue",
+    shortLabel: "Holder",
     color: "#9333ea",
     dotClass: "bg-[#9333ea]",
     render: "bar",
@@ -39,6 +43,7 @@ const metricOptions: Array<{
   {
     key: "tokenPrice",
     label: "Token Price",
+    shortLabel: "Price",
     color: "#0891b2",
     dotClass: "bg-[#0891b2]",
     render: "line",
@@ -53,8 +58,9 @@ const rangeOptions = [
 ];
 
 type ChartMode = "indexed" | "usd";
+type ViewportTier = "mobile" | "tablet" | "desktop";
 const segmentButtonClass =
-  "inline-flex min-h-[34px] items-center gap-[7px] rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 text-xs font-semibold text-[var(--muted)]";
+  "inline-flex min-h-[34px] shrink-0 items-center gap-[7px] rounded-lg border border-[var(--border)] bg-[var(--surface)] px-2.5 text-xs font-semibold text-[var(--muted)]";
 const activeSegmentButtonClass = `${segmentButtonClass} border-[var(--text)] bg-[var(--text)] text-[var(--surface)]`;
 
 export function MetricChart({
@@ -64,15 +70,39 @@ export function MetricChart({
   data: DashboardData;
   accentColor: string;
 }) {
-  const available = metricOptions.filter((option) => data.metrics[option.key]?.points.length);
-  const initialMetrics = available
-    .slice(0, Math.min(4, available.length))
-    .map((option) => option.key);
-  const [selectedMetrics, setSelectedMetrics] = useState<ChartMetricKey[]>(initialMetrics);
+  const available = useMemo(
+    () => metricOptions.filter((option) => data.metrics[option.key]?.points.length),
+    [data.metrics],
+  );
+  const [selectedMetrics, setSelectedMetrics] = useState<ChartMetricKey[]>(() =>
+    available.slice(0, Math.min(4, available.length)).map((option) => option.key),
+  );
   const [range, setRange] = useState("90D");
   const [mode, setMode] = useState<ChartMode>("usd");
   const [theme, setTheme] = useState<"light" | "dark">("light");
+  const viewport = useViewportTier();
   const activeRange = rangeOptions.find((option) => option.key === range) ?? rangeOptions[1];
+  const metricLimit = viewport === "mobile" ? 2 : viewport === "tablet" ? 3 : available.length;
+  const chartMode = viewport === "mobile" ? "indexed" : mode;
+  const chartHeightClass =
+    viewport === "mobile" ? "h-[360px]" : viewport === "tablet" ? "h-[420px]" : "h-[470px]";
+
+  useEffect(() => {
+    if (available.length === 0) return;
+    setSelectedMetrics((current) => {
+      const valid = current.filter((metric) => available.some((option) => option.key === metric));
+      const next = valid.length ? valid : available.slice(0, Math.min(metricLimit, available.length)).map((option) => option.key);
+      const trimmed = next.slice(0, metricLimit);
+      if (trimmed.length === current.length && trimmed.every((metric, index) => metric === current[index])) {
+        return current;
+      }
+      return trimmed;
+    });
+  }, [available, metricLimit]);
+
+  useEffect(() => {
+    if (viewport === "mobile") setMode("indexed");
+  }, [viewport]);
 
   useEffect(() => {
     function syncTheme() {
@@ -100,6 +130,7 @@ export function MetricChart({
       ? Math.floor(Date.now() / 1000) - activeRange.days * 24 * 60 * 60
       : 0;
     const activeSeries = selectedMetrics
+      .slice(0, metricLimit)
       .map((metric) => {
         const series = data.metrics[metric];
         const meta = metricOptions.find((item) => item.key === metric);
@@ -115,11 +146,17 @@ export function MetricChart({
             point.timestamp >= cutoff && point.value != null && isCompletedUtcDay(point.timestamp),
         );
         const base = points.find((point) => point.value && point.value > 0)?.value ?? null;
-        return { ...item, axisIndex: mode === "indexed" ? 0 : index, base, points };
+        return { ...item, axisIndex: chartMode === "indexed" ? 0 : index, base, points };
       })
       .filter((item) => item.points.length > 0);
     const rightAxisCount = Math.max(0, activeWithPoints.length - 1);
-    const gridRight = mode === "indexed" ? 26 : Math.min(280, 34 + rightAxisCount * 58);
+    const axisSpacing = viewport === "tablet" ? 42 : 58;
+    const gridRight =
+      chartMode === "indexed"
+        ? viewport === "mobile"
+          ? 12
+          : 26
+        : Math.min(viewport === "tablet" ? 138 : 280, 34 + rightAxisCount * axisSpacing);
     const maxTimestamp =
       Math.max(
         ...activeWithPoints.flatMap((item) => item.points.map((point) => point.timestamp)),
@@ -138,12 +175,14 @@ export function MetricChart({
           type: "slider",
           xAxisIndex: 0,
           filterMode: "none",
-          height: 34,
-          bottom: 14,
+          height: viewport === "mobile" ? 20 : 34,
+          bottom: viewport === "mobile" ? 8 : 14,
           borderColor: colors.border,
           backgroundColor: colors.surfaceMuted,
           fillerColor: isDark ? "rgba(255, 255, 255, 0.12)" : "rgba(17, 17, 17, 0.12)",
           handleColor: colors.handle,
+          showDataShadow: viewport !== "mobile",
+          showDetail: viewport !== "mobile",
           handleStyle: { borderColor: colors.text },
           moveHandleStyle: { color: colors.text },
           selectedDataBackground: {
@@ -155,7 +194,12 @@ export function MetricChart({
           textStyle: { color: colors.axis },
         },
       ],
-      grid: { left: 58, right: gridRight, top: 28, bottom: 82 },
+      grid: {
+        left: viewport === "mobile" ? 42 : 58,
+        right: gridRight,
+        top: viewport === "mobile" ? 18 : 28,
+        bottom: viewport === "mobile" ? 52 : 82,
+      },
       legend: {
         show: false,
         icon: "circle",
@@ -164,47 +208,50 @@ export function MetricChart({
         textStyle: { color: colors.axis, fontSize: 12 },
       },
       tooltip: {
+        confine: true,
+        extraCssText: "max-width: min(320px, calc(100vw - 32px)); white-space: normal;",
         trigger: "axis",
         backgroundColor: colors.surface,
         borderColor: colors.border,
         borderWidth: 1,
         className: "lk-chart-tooltip",
-        textStyle: { color: colors.text, fontSize: 12 },
+        textStyle: { color: colors.text, fontSize: viewport === "mobile" ? 11 : 12 },
         valueFormatter: (value) =>
-          mode === "indexed" ? `${Number(value).toFixed(1)}` : formatUsd(Number(value)),
+          chartMode === "indexed" ? `${Number(value).toFixed(1)}` : formatUsd(Number(value)),
       },
       xAxis: {
         type: "time",
         max: maxTimestamp ? maxTimestamp * 1000 : undefined,
         axisLine: { lineStyle: { color: colors.border } },
-        axisLabel: { color: colors.axis },
+        axisLabel: { color: colors.axis, hideOverlap: true, fontSize: viewport === "mobile" ? 10 : 12 },
         axisPointer: { lineStyle: { color: colors.axis, type: "dashed" } },
       },
       yAxis:
-        mode === "indexed"
+        chartMode === "indexed"
           ? {
               type: "value",
-              axisLabel: { color: colors.axis, formatter: (value: number) => `${value}` },
+              axisLabel: { color: colors.axis, formatter: (value: number) => `${value}`, fontSize: viewport === "mobile" ? 10 : 12 },
               splitLine: { lineStyle: { color: colors.grid } },
             }
           : activeWithPoints.map(({ meta }, index) => ({
               type: "value",
-              name: meta.label,
+              name: viewport === "tablet" ? meta.shortLabel : meta.label,
               nameGap: 8,
-              nameTextStyle: { color: meta.color, fontSize: 11, fontWeight: 600 },
+              nameTextStyle: { color: meta.color, fontSize: viewport === "tablet" ? 10 : 11, fontWeight: 600 },
               position: index === 0 ? "left" : "right",
-              offset: index <= 1 ? 0 : (index - 1) * 58,
+              offset: index <= 1 ? 0 : (index - 1) * axisSpacing,
               scale: true,
               axisLine: { show: index !== 0, lineStyle: { color: meta.color } },
               axisTick: { show: index !== 0, lineStyle: { color: meta.color } },
               axisLabel: {
                 color: index === 0 ? colors.axis : meta.color,
                 formatter: formatAxisValue,
+                fontSize: viewport === "tablet" ? 10 : 12,
               },
               splitLine: { show: index === 0, lineStyle: { color: colors.grid } },
             })),
       series: activeWithPoints.map(({ axisIndex, base, meta, points }) => {
-        const isBar = mode === "usd" && meta.render === "bar";
+        const isBar = chartMode === "usd" && meta.render === "bar";
         const color = meta.key === "tvl" ? colors.tvl : meta.color;
         return {
           type: isBar ? "bar" : "line",
@@ -212,7 +259,7 @@ export function MetricChart({
           yAxisIndex: axisIndex,
           showSymbol: false,
           smooth: !isBar,
-          barMaxWidth: 5,
+          barMaxWidth: viewport === "mobile" ? 3 : 5,
           itemStyle: { color, opacity: isBar ? 0.72 : 1 },
           lineStyle: { width: meta.key === "tvl" ? 2.5 : 2, color },
           areaStyle:
@@ -222,18 +269,19 @@ export function MetricChart({
           emphasis: { focus: "series" },
           data: points.map((point) => [
             point.timestamp * 1000,
-            mode === "indexed" && base ? ((point.value ?? 0) / base) * 100 : point.value,
+            chartMode === "indexed" && base ? ((point.value ?? 0) / base) * 100 : point.value,
           ]),
         };
       }),
     };
-  }, [activeRange.days, data.metrics, mode, selectedMetrics, theme]);
+  }, [activeRange.days, chartMode, data.metrics, metricLimit, selectedMetrics, theme, viewport]);
 
   function toggleMetric(metric: ChartMetricKey) {
     setSelectedMetrics((current) => {
       if (current.includes(metric)) {
         return current.length === 1 ? current : current.filter((item) => item !== metric);
       }
+      if (current.length >= metricLimit) return [...current.slice(1), metric];
       return [...current, metric];
     });
   }
@@ -242,7 +290,7 @@ export function MetricChart({
 
   return (
     <section
-      className="min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5"
+      className="min-w-0 rounded-xl border border-[var(--border)] bg-[var(--surface)] p-5 max-[640px]:p-3.5"
       id="performance"
     >
       <div className="flex items-start justify-between gap-4 max-[760px]:flex-col">
@@ -253,11 +301,12 @@ export function MetricChart({
             Compare metrics on independent scales. Use the lower range bar for fine-grained history.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-1.5" aria-label="Chart display mode">
+        <div className="flex flex-wrap items-center gap-1.5 max-[640px]:w-full" aria-label="Chart display mode">
           {(["indexed", "usd"] as ChartMode[]).map((item) => (
             <button
-              aria-pressed={mode === item}
-              className={mode === item ? activeSegmentButtonClass : segmentButtonClass}
+              aria-pressed={chartMode === item}
+              className={chartMode === item ? activeSegmentButtonClass : segmentButtonClass}
+              disabled={viewport === "mobile" && item === "usd"}
               key={item}
               onClick={() => setMode(item)}
               type="button"
@@ -267,8 +316,8 @@ export function MetricChart({
           ))}
         </div>
       </div>
-      <div className="mb-2 mt-4 flex flex-wrap justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-1.5">
+      <div className="mb-2 mt-4 flex min-w-0 flex-wrap justify-between gap-3 max-[640px]:flex-col">
+        <div className="order-2 flex min-w-0 max-w-full items-center gap-1.5 overflow-x-auto pb-1 max-[640px]:-mx-1 max-[640px]:order-2 max-[640px]:w-full max-[640px]:px-1" aria-label="Compare metrics">
           {available.map((option) => (
             <button
               aria-pressed={selectedMetrics.includes(option.key)}
@@ -280,11 +329,12 @@ export function MetricChart({
               type="button"
             >
               <span className={`size-2 rounded-full ${option.dotClass}`} />
-              {option.label}
+              <span className="max-[640px]:hidden">{option.label}</span>
+              <span className="hidden max-[640px]:inline">{option.shortLabel}</span>
             </button>
           ))}
         </div>
-        <div className="flex flex-wrap items-center gap-1.5" aria-label="Chart time range">
+        <div className="order-1 flex flex-wrap items-center gap-1.5 max-[640px]:order-1" aria-label="Chart time range">
           {rangeOptions.map((option) => (
             <button
               aria-pressed={range === option.key}
@@ -298,9 +348,31 @@ export function MetricChart({
           ))}
         </div>
       </div>
-      <EChart className="h-[470px]" option={option} />
+      <EChart className={chartHeightClass} option={option} />
     </section>
   );
+}
+
+function useViewportTier(): ViewportTier {
+  const [tier, setTier] = useState<ViewportTier>("desktop");
+
+  useEffect(() => {
+    function sync() {
+      if (window.matchMedia("(max-width: 640px)").matches) {
+        setTier("mobile");
+      } else if (window.matchMedia("(max-width: 1180px)").matches) {
+        setTier("tablet");
+      } else {
+        setTier("desktop");
+      }
+    }
+
+    sync();
+    window.addEventListener("resize", sync);
+    return () => window.removeEventListener("resize", sync);
+  }, []);
+
+  return tier;
 }
 
 function formatAxisValue(value: number) {
