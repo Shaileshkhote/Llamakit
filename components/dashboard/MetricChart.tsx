@@ -3,7 +3,7 @@
 import type { EChartsOption } from "echarts";
 import { useEffect, useMemo, useState } from "react";
 import { EChart } from "@/components/charts/EChart";
-import { formatUsd } from "@/lib/format";
+import { formatUsd, isCompletedUtcDay } from "@/lib/format";
 import type { ChartMetricKey, DashboardData, MetricSeries } from "@/types/metrics";
 
 const metricOptions: Array<{
@@ -111,7 +111,8 @@ export function MetricChart({
     const activeWithPoints = activeSeries
       .map((item, index) => {
         const points = item.series.points.filter(
-          (point) => point.timestamp >= cutoff && point.value != null,
+          (point) =>
+            point.timestamp >= cutoff && point.value != null && isCompletedUtcDay(point.timestamp),
         );
         const base = points.find((point) => point.value && point.value > 0)?.value ?? null;
         return { ...item, axisIndex: mode === "indexed" ? 0 : index, base, points };
@@ -119,6 +120,11 @@ export function MetricChart({
       .filter((item) => item.points.length > 0);
     const rightAxisCount = Math.max(0, activeWithPoints.length - 1);
     const gridRight = mode === "indexed" ? 26 : Math.min(280, 34 + rightAxisCount * 58);
+    const maxTimestamp =
+      Math.max(
+        ...activeWithPoints.flatMap((item) => item.points.map((point) => point.timestamp)),
+        0,
+      ) || null;
 
     return {
       color: activeSeries.map(({ meta }) => (meta.key === "tvl" ? colors.tvl : meta.color)),
@@ -169,6 +175,7 @@ export function MetricChart({
       },
       xAxis: {
         type: "time",
+        max: maxTimestamp ? maxTimestamp * 1000 : undefined,
         axisLine: { lineStyle: { color: colors.border } },
         axisLabel: { color: colors.axis },
         axisPointer: { lineStyle: { color: colors.axis, type: "dashed" } },

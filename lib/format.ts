@@ -30,3 +30,12 @@ export function getLatestTimestamp(points: Array<{ timestamp: number; value: num
     .filter((point) => point.value != null)
     .reduce((latest, point) => Math.max(latest, point.timestamp), 0)
 }
+
+export function getUtcDayStart(timestampMs = Date.now()) {
+  const date = new Date(timestampMs)
+  return Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()) / 1000
+}
+
+export function isCompletedUtcDay(timestamp: number, nowMs = Date.now()) {
+  return timestamp < getUtcDayStart(nowMs)
+}

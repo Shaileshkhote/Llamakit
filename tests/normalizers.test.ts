@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { getUtcDayStart, isCompletedUtcDay } from "../lib/format";
 import { normalizeMethodologyText, splitSourceUrls } from "../lib/normalization/methodology";
 import { createSeries, normalizePoints } from "../lib/normalization/series";
 
@@ -34,6 +35,17 @@ describe("normalizers", () => {
       sourceUrl: "https://api.llama.fi/protocol/uniswap",
       status: "unsupported",
     });
+  });
+});
+
+describe("date helpers", () => {
+  it("treats the current UTC day as incomplete", () => {
+    const now = Date.parse("2026-06-23T13:00:00Z");
+
+    expect(getUtcDayStart(now)).toBe(Date.parse("2026-06-23T00:00:00Z") / 1000);
+    expect(isCompletedUtcDay(Date.parse("2026-06-22T23:59:59Z") / 1000, now)).toBe(true);
+    expect(isCompletedUtcDay(Date.parse("2026-06-23T00:00:00Z") / 1000, now)).toBe(false);
+    expect(isCompletedUtcDay(Date.parse("2026-06-23T05:30:00Z") / 1000, now)).toBe(false);
   });
 });
 
