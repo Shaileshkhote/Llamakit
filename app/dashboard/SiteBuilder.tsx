@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { EMPTY_CAPABILITIES, type ProtocolCapabilities } from "@/types/metrics";
 import type { User } from "@/types/auth";
-import type { AnalyticsSite, AnalyticsSiteDomain } from "@/types/site";
+import type { AnalyticsSite, AnalyticsSiteDomain, DnsRecord } from "@/types/site";
 
 const Select = dynamic(() => import("react-select"), { ssr: false });
 
@@ -31,13 +31,6 @@ type ProtocolOption = {
 };
 
 type WizardStep = "protocol" | "config" | "domain" | "deploy";
-
-type DnsRecord = {
-  name: string;
-  reason?: string;
-  type: string;
-  value: string;
-};
 
 const moduleLabels: Record<keyof AnalyticsSite["enabledModules"], string> = {
   overview: "Overview",
@@ -858,8 +851,8 @@ function DomainInstructions({
           <p className={`${eyebrowClass} m-0`}>DNS setup</p>
           <h3 className="mb-0 mt-1 text-xl">{domain.hostname}</h3>
           <p className="mb-0 mt-2 max-w-[720px] text-sm leading-[1.55] text-[var(--muted)]">
-            Add these records in the DNS provider for the root domain. For example, if the hostname
-            is `sky.vibecrypto.fun`, open DNS for `vibecrypto.fun` and add the CNAME host `sky`.
+            LlamaKit has attached this hostname to the LlamaKit Vercel project. Add the exact DNS
+            records below in the customer DNS provider, then check status.
           </p>
         </div>
         <span className={pillClass}>{domain.status}</span>
@@ -895,17 +888,17 @@ function DomainInstructions({
           ))}
         </div>
       ) : (
-        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm leading-[1.55] text-[var(--muted)]">
-          Vercel did not return an exact DNS record through the API for this domain. If your Vercel
-          dashboard says "DNS Change Recommended", use that dashboard value exactly instead of a
-          generic CNAME.
+        <div className="rounded-xl border border-[var(--bad)]/40 bg-[var(--bad)]/10 p-4 text-sm leading-[1.55] text-[var(--text)]">
+          LlamaKit could not read the required DNS record from Vercel yet. Click check status once;
+          if this remains empty, the LlamaKit Vercel token needs domain-config access for this
+          project before this hostname can be handed to a customer.
         </div>
       )}
 
       <div className="grid gap-2 text-sm leading-[1.55] text-[var(--muted)]">
         <p className="m-0">
-          DNS can take a few minutes to propagate. After adding the records, click check status. Do
-          not publish the custom domain as active until Vercel marks it verified.
+          DNS can take a few minutes to propagate. A domain becomes active only after Vercel verifies
+          the project alias and confirms the DNS route is configured.
         </p>
         {domain.verificationData?.error ? (
           <p className="m-0 text-[var(--bad)]">{String(domain.verificationData.error)}</p>
@@ -926,14 +919,29 @@ function DomainInstructions({
 
 function getDnsRecords(domain: AnalyticsSiteDomain): DnsRecord[] {
   const verificationData = domain.verificationData ?? {};
-  const cname =
-    typeof verificationData.cname === "string" && verificationData.cname
-      ? verificationData.cname
-      : null;
+  const dnsRecords = Array.isArray(verificationData.dnsRecords)
+    ? (verificationData.dnsRecords as Array<Record<string, unknown>>)
+    : [];
+  const storedRecords = dnsRecords
+    .map((record): DnsRecord | null => {
+      const type = String(record.type ?? "").toUpperCase();
+      const name = String(record.name ?? "");
+      const value = String(record.value ?? "");
+      if (!type || !name || !value) return null;
+      return {
+        type,
+        name,
+        value,
+        reason: record.reason ? String(record.reason) : undefined,
+      };
+    })
+    .filter((record): record is DnsRecord => Boolean(record));
+  if (storedRecords.length > 0) return storedRecords;
+
   const verification = Array.isArray(verificationData.verification)
     ? (verificationData.verification as Array<Record<string, unknown>>)
     : [];
-  const verificationRecords = verification
+  return verification
     .map((record): DnsRecord | null => {
       const type = String(record.type ?? "TXT").toUpperCase();
       const name = String(record.name ?? record.domain ?? "");
@@ -947,38 +955,6 @@ function getDnsRecords(domain: AnalyticsSiteDomain): DnsRecord[] {
       };
     })
     .filter((record): record is DnsRecord => Boolean(record));
-  const exactVerificationRecords = verificationRecords.filter(
-    (record) => record.type !== "CNAME" || !isGenericVercelCname(record.value),
-  );
-  const hasExactVercelCname = exactVerificationRecords.some((record) => record.type === "CNAME");
-  const shouldShowStoredCname = cname != null && !isGenericVercelCname(cname);
-
-  return [
-    ...(hasExactVercelCname
-      ? []
-      : shouldShowStoredCname
-        ? [
-            {
-              type: "CNAME",
-              name: dnsHostLabel(domain.hostname),
-              value: cname,
-              reason: `Vercel-recommended CNAME for ${domain.hostname}.`,
-            },
-          ]
-        : []),
-    ...exactVerificationRecords,
-  ];
-}
-
-function isGenericVercelCname(value: string) {
-  const normalized = value.trim().toLowerCase().replace(/\.$/, "");
-  return normalized === "cname.vercel-dns.com" || normalized === "cname.vercel.com";
-}
-
-function dnsHostLabel(hostname: string) {
-  const parts = hostname.split(".");
-  if (parts.length <= 2) return hostname;
-  return parts.slice(0, -2).join(".");
 }
 
 function parseSlugs(value: string) {

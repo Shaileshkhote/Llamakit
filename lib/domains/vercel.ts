@@ -1,6 +1,6 @@
 import { env } from "@/lib/env";
 import { createDomain, deleteDomain, getDomain, updateDomain } from "@/lib/tenancy/store";
-import type { AnalyticsSite, AnalyticsSiteDomain } from "@/types/site";
+import type { AnalyticsSite, AnalyticsSiteDomain, DnsRecord } from "@/types/site";
 
 type DomainStatus = "pending" | "verified" | "error";
 type DomainVerification = {
@@ -13,6 +13,8 @@ type DomainVerification = {
 export interface VercelDomainResult {
   hostname: string;
   status: DomainStatus;
+  configured: boolean;
+  dnsRecords: DnsRecord[];
   verification: DomainVerification[];
   error?: string;
 }
@@ -32,8 +34,15 @@ interface VercelApiConfig {
 
 type VercelDomainResponse = {
   name?: string;
+  apexName?: string;
   verified?: boolean;
   verification?: Array<Record<string, unknown>>;
+  error?: { message?: string } | string;
+};
+
+type VercelDomainConfigResponse = Record<string, unknown> & {
+  configuredBy?: string | null;
+  misconfigured?: boolean;
   error?: { message?: string } | string;
 };
 
@@ -59,18 +68,123 @@ function payloadError(payload: VercelDomainResponse) {
   return typeof payload.error === "string" ? payload.error : payload.error?.message;
 }
 
-function resultFromPayload(hostname: string, payload: VercelDomainResponse): VercelDomainResult {
+function configError(payload?: VercelDomainConfigResponse | null) {
+  if (!payload) return undefined;
+  return typeof payload.error === "string" ? payload.error : payload.error?.message;
+}
+
+function resultFromPayload(
+  hostname: string,
+  payload: VercelDomainResponse,
+  config?: VercelDomainConfigResponse | null,
+): VercelDomainResult {
   const verification = verificationFromVercel(payload.verification);
+  const dnsRecords = dnsRecordsFromVercel(hostname, payload, config, verification);
+  const hasConfig = config != null && !configError(config);
+  const configured = hasConfig ? config?.misconfigured === false : false;
+  const error = payloadError(payload) || configError(config);
+
   return {
     hostname: payload.name || hostname,
-    status: payload.verified ? "verified" : "pending",
+    status: payload.verified && configured ? "verified" : error ? "error" : "pending",
+    configured,
+    dnsRecords,
     verification,
-    error: payloadError(payload),
+    error,
   };
 }
 
-function recommendedCname(result: VercelDomainResult) {
-  return result.verification.find((record) => record.type === "cname" && record.value)?.value;
+function dnsRecordsFromVercel(
+  hostname: string,
+  payload: VercelDomainResponse,
+  config: VercelDomainConfigResponse | null | undefined,
+  verification: DomainVerification[],
+): DnsRecord[] {
+  const records = new Map<string, DnsRecord>();
+
+  for (const record of verification) {
+    if (!record.value) continue;
+    const normalizedType = record.type.toUpperCase();
+    const value = record.value.trim();
+    if (normalizedType === "CNAME" && isGenericVercelCname(value)) continue;
+
+    addDnsRecord(records, {
+      type: normalizedType,
+      name: normalizeDnsRecordName(record.name, hostname, normalizedType),
+      value,
+      reason: record.reason,
+    });
+  }
+
+  const exactCnameTargets = findStrings(config, (value) => isExactVercelDnsTarget(value));
+  for (const value of exactCnameTargets) {
+    addDnsRecord(records, {
+      type: "CNAME",
+      name: dnsHostLabel(hostname),
+      value,
+      reason: `Route ${hostname} to the LlamaKit Vercel project.`,
+    });
+  }
+
+  const configuredBy = typeof config?.configuredBy === "string" ? config.configuredBy.toUpperCase() : "";
+  const aTargets = findStrings(config, (value) => value.trim() === "76.76.21.21");
+  if (configuredBy === "A" || (records.size === 0 && aTargets.length > 0)) {
+    for (const value of aTargets.length ? aTargets : ["76.76.21.21"]) {
+      addDnsRecord(records, {
+        type: "A",
+        name: dnsHostLabel(hostname),
+        value,
+        reason: `Route ${hostname} to Vercel.`,
+      });
+    }
+  }
+
+  return Array.from(records.values());
+}
+
+function addDnsRecord(records: Map<string, DnsRecord>, record: DnsRecord) {
+  records.set(`${record.type}:${record.name}:${record.value}`, record);
+}
+
+function findStrings(value: unknown, predicate: (value: string) => boolean, seen = new WeakSet<object>()): string[] {
+  if (typeof value === "string") return predicate(value) ? [value.trim()] : [];
+  if (!value || typeof value !== "object") return [];
+  if (seen.has(value)) return [];
+  seen.add(value);
+
+  const found: string[] = [];
+  for (const item of Array.isArray(value) ? value : Object.values(value)) {
+    found.push(...findStrings(item, predicate, seen));
+  }
+  return Array.from(new Set(found));
+}
+
+function isGenericVercelCname(value: string) {
+  const normalized = value.trim().toLowerCase().replace(/\.$/, "");
+  return normalized === "cname.vercel-dns.com" || normalized === "cname.vercel.com";
+}
+
+function isExactVercelDnsTarget(value: string) {
+  const normalized = value.trim().toLowerCase().replace(/\.$/, "");
+  return normalized.endsWith(".vercel-dns.com") && !isGenericVercelCname(normalized);
+}
+
+function normalizeDnsRecordName(name: string, hostname: string, type: string) {
+  if (type === "TXT" && name === hostname) return `_vercel.${dnsHostLabel(hostname)}`;
+  if (name.endsWith(`.${hostname}`)) return name.slice(0, -hostname.length - 1);
+  return name || dnsHostLabel(hostname);
+}
+
+function dnsHostLabel(hostname: string) {
+  const parts = hostname.split(".");
+  if (parts.length <= 2) return "@";
+  return parts.slice(0, -2).join(".");
+}
+
+function statusForResult(result: VercelDomainResult): AnalyticsSiteDomain["status"] {
+  if (result.status === "verified" && result.configured) return "active";
+  if (result.status === "error" && result.dnsRecords.length === 0) return "failed";
+  return "verifying";
 }
 
 class RealVercelDomainClient implements VercelDomainClient {
@@ -81,7 +195,8 @@ class RealVercelDomainClient implements VercelDomainClient {
       method: "POST",
       body: JSON.stringify({ name: hostname }),
     });
-    return resultFromPayload(hostname, payload);
+    const config = await this.getDomainConfig(hostname);
+    return resultFromPayload(hostname, payload, config);
   }
 
   async removeProjectDomain(hostname: string): Promise<void> {
@@ -90,12 +205,14 @@ class RealVercelDomainClient implements VercelDomainClient {
 
   async getProjectDomain(hostname: string): Promise<VercelDomainResult> {
     const payload = await this.request<VercelDomainResponse>(`/domains/${encodeURIComponent(hostname)}`, { method: "GET" });
-    return resultFromPayload(hostname, payload);
+    const config = await this.getDomainConfig(hostname);
+    return resultFromPayload(hostname, payload, config);
   }
 
   async verifyProjectDomain(hostname: string): Promise<VercelDomainResult> {
     const payload = await this.request<VercelDomainResponse>(`/domains/${encodeURIComponent(hostname)}/verify`, { method: "POST" });
-    return resultFromPayload(hostname, payload);
+    const config = await this.getDomainConfig(hostname);
+    return resultFromPayload(hostname, payload, config);
   }
 
   private async request<T>(path: string, init: RequestInit): Promise<T> {
@@ -112,6 +229,26 @@ class RealVercelDomainClient implements VercelDomainClient {
     const payload = (await response.json().catch(() => ({}))) as T & VercelDomainResponse;
     if (!response.ok) {
       throw new Error(payloadError(payload) || `Vercel API request failed with ${response.status}.`);
+    }
+
+    return payload;
+  }
+
+  private async getDomainConfig(hostname: string): Promise<VercelDomainConfigResponse | null> {
+    const team = this.config.teamId ? `?teamId=${encodeURIComponent(this.config.teamId)}` : "";
+    const response = await fetch(`https://api.vercel.com/v6/domains/${encodeURIComponent(hostname)}/config${team}`, {
+      method: "GET",
+      headers: {
+        authorization: `Bearer ${this.config.token}`,
+        "content-type": "application/json",
+      },
+    });
+    const payload = (await response.json().catch(() => ({}))) as VercelDomainConfigResponse;
+
+    if (!response.ok) {
+      return {
+        error: payload.error || { message: `Vercel domain-config request failed with ${response.status}.` },
+      };
     }
 
     return payload;
@@ -137,6 +274,8 @@ class StubVercelDomainClient implements VercelDomainClient {
     return {
       hostname,
       status: "pending",
+      configured: false,
+      dnsRecords: [],
       verification: [
         {
           type: "txt",
@@ -164,17 +303,17 @@ export function createVercelDomainClient(config: VercelApiConfig = {}): VercelDo
 export async function addCustomDomain(site: AnalyticsSite, hostname: string): Promise<AnalyticsSiteDomain> {
   const normalized = normalizeForVercel(hostname);
   const result = await createVercelDomainClient().addProjectDomain(normalized);
-  const cname = recommendedCname(result);
 
   return await createDomain({
     analyticsSiteId: site.id,
     hostname: result.hostname,
     type: "custom",
-    status: result.status === "verified" ? "active" : result.status === "error" ? "failed" : "verifying",
+    status: statusForResult(result),
     verificationData: {
+      configured: result.configured,
+      dnsRecords: result.dnsRecords,
       verification: result.verification,
       error: result.error,
-      cname,
     },
   });
 }
@@ -184,13 +323,13 @@ export async function refreshCustomDomain(hostname: string) {
   if (!existing) return null;
 
   const result = await createVercelDomainClient().verifyProjectDomain(existing.hostname);
-  const cname = recommendedCname(result);
   return await updateDomain(existing.hostname, {
-    status: result.status === "verified" ? "active" : result.status === "error" ? "failed" : "verifying",
+    status: statusForResult(result),
     verificationData: {
+      configured: result.configured,
+      dnsRecords: result.dnsRecords,
       verification: result.verification,
       error: result.error,
-      cname,
     },
   });
 }

@@ -48,6 +48,13 @@ export type AnalyticsSite = {
 
 export type DomainStatus = "pending" | "verifying" | "active" | "failed"
 
+export type DnsRecord = {
+  name: string
+  reason?: string
+  type: string
+  value: string
+}
+
 export type AnalyticsSiteDomain = {
   id: string
   analyticsSiteId: string
