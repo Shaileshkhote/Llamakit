@@ -45,8 +45,9 @@ function verificationFromVercel(value: unknown): DomainVerification[] {
   const records = Array.isArray(value) ? value : [];
   return records.map((record) => {
     const item = record as Record<string, string | undefined>;
+    const type = item.type?.toUpperCase();
     return {
-      type: item.type === "TXT" ? "txt" : item.type === "CNAME" ? "cname" : item.type === "A" ? "a" : "unknown",
+      type: type === "TXT" ? "txt" : type === "CNAME" ? "cname" : type === "A" ? "a" : "unknown",
       name: item.domain || item.name || "_vercel",
       value: item.value || item.reason || "",
       reason: item.reason,
@@ -66,6 +67,10 @@ function resultFromPayload(hostname: string, payload: VercelDomainResponse): Ver
     verification,
     error: payloadError(payload),
   };
+}
+
+function recommendedCname(result: VercelDomainResult) {
+  return result.verification.find((record) => record.type === "cname" && record.value)?.value;
 }
 
 class RealVercelDomainClient implements VercelDomainClient {
@@ -134,6 +139,12 @@ class StubVercelDomainClient implements VercelDomainClient {
       status: "pending",
       verification: [
         {
+          type: "cname",
+          name: dnsHostLabel(hostname),
+          value: "cname.vercel-dns.com",
+          reason: "Fallback CNAME. The live Vercel API can return a domain-specific target.",
+        },
+        {
           type: "txt",
           name: `_vercel.${hostname}`,
           value: "stub-verification-token",
@@ -142,6 +153,12 @@ class StubVercelDomainClient implements VercelDomainClient {
       ],
     };
   }
+}
+
+function dnsHostLabel(hostname: string) {
+  const parts = hostname.split(".");
+  if (parts.length <= 2) return hostname;
+  return parts.slice(0, -2).join(".");
 }
 
 export function createVercelDomainClient(config: VercelApiConfig = {}): VercelDomainClient {
@@ -159,6 +176,7 @@ export function createVercelDomainClient(config: VercelApiConfig = {}): VercelDo
 export async function addCustomDomain(tenant: Tenant, hostname: string): Promise<TenantDomain> {
   const normalized = normalizeForVercel(hostname);
   const result = await createVercelDomainClient().addProjectDomain(normalized);
+  const cname = recommendedCname(result);
 
   return await createDomain({
     tenantId: tenant.id,
@@ -168,7 +186,7 @@ export async function addCustomDomain(tenant: Tenant, hostname: string): Promise
     verificationData: {
       verification: result.verification,
       error: result.error,
-      cname: "cname.vercel-dns.com",
+      cname,
     },
   });
 }
@@ -178,12 +196,13 @@ export async function refreshCustomDomain(hostname: string) {
   if (!existing) return null;
 
   const result = await createVercelDomainClient().verifyProjectDomain(existing.hostname);
+  const cname = recommendedCname(result);
   return await updateDomain(existing.hostname, {
     status: result.status === "verified" ? "active" : result.status === "error" ? "failed" : "verifying",
     verificationData: {
       verification: result.verification,
       error: result.error,
-      cname: "cname.vercel-dns.com",
+      cname,
     },
   });
 }

@@ -885,32 +885,41 @@ function DomainInstructions({
 
 function getDnsRecords(domain: TenantDomain): DnsRecord[] {
   const verificationData = domain.verificationData ?? {};
-  const cname = typeof verificationData.cname === "string" ? verificationData.cname : "cname.vercel-dns.com";
+  const cname =
+    typeof verificationData.cname === "string" && verificationData.cname
+      ? verificationData.cname
+      : "cname.vercel-dns.com";
   const verification = Array.isArray(verificationData.verification)
     ? (verificationData.verification as Array<Record<string, unknown>>)
     : [];
+  const verificationRecords = verification
+    .map((record): DnsRecord | null => {
+      const type = String(record.type ?? "TXT").toUpperCase();
+      const name = String(record.name ?? record.domain ?? "");
+      const value = String(record.value ?? "");
+      if (!name || !value) return null;
+      return {
+        type,
+        name,
+        value,
+        reason: record.reason ? String(record.reason) : undefined,
+      };
+    })
+    .filter((record): record is DnsRecord => Boolean(record));
+  const hasVercelCname = verificationRecords.some((record) => record.type === "CNAME");
 
   return [
-    {
-      type: "CNAME",
-      name: dnsHostLabel(domain.hostname),
-      value: cname,
-      reason: `Points ${domain.hostname} to this Vercel project.`,
-    },
-    ...verification
-      .map((record): DnsRecord | null => {
-        const type = String(record.type ?? "TXT").toUpperCase();
-        const name = String(record.name ?? record.domain ?? "");
-        const value = String(record.value ?? "");
-        if (!name || !value) return null;
-        return {
-          type,
-          name,
-          value,
-          reason: record.reason ? String(record.reason) : undefined,
-        };
-      })
-      .filter((record): record is DnsRecord => Boolean(record)),
+    ...(hasVercelCname
+      ? []
+      : [
+          {
+            type: "CNAME",
+            name: dnsHostLabel(domain.hostname),
+            value: cname,
+            reason: `Points ${domain.hostname} to this Vercel project.`,
+          },
+        ]),
+    ...verificationRecords,
   ];
 }
 
