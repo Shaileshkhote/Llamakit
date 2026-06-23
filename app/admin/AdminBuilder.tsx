@@ -5,7 +5,7 @@ import toast from "react-hot-toast";
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { EMPTY_CAPABILITIES, type ProtocolCapabilities } from "@/types/metrics";
-import type { Tenant } from "@/types/tenant";
+import type { Tenant, TenantDomain } from "@/types/tenant";
 
 const Select = dynamic(() => import("react-select"), { ssr: false });
 
@@ -30,6 +30,13 @@ type ProtocolOption = {
 };
 
 type WizardStep = "protocol" | "config" | "domain" | "deploy";
+
+type DnsRecord = {
+  name: string;
+  reason?: string;
+  type: string;
+  value: string;
+};
 
 const moduleLabels: Record<keyof Tenant["enabledModules"], string> = {
   overview: "Overview",
@@ -111,6 +118,7 @@ export default function AdminBuilder() {
   const [maxUnlockedStep, setMaxUnlockedStep] = useState(0);
   const [search, setSearch] = useState("");
   const [protocolOptions, setProtocolOptions] = useState<ProtocolOption[]>([]);
+  const [attachedDomain, setAttachedDomain] = useState<TenantDomain | null>(null);
   const selectedTenant = useMemo(
     () => tenants.find((tenant) => tenant.slug === selectedSlug),
     [selectedSlug, tenants],
@@ -355,10 +363,18 @@ export default function AdminBuilder() {
       method: "POST",
       body: JSON.stringify({ tenantSlug: selectedTenant.slug, hostname }),
     });
-    toast.success(`Domain ${payload.domain.hostname} added`);
+    setAttachedDomain(payload.domain);
+    toast.success(`Domain ${payload.domain.hostname} added. Add the DNS records below.`);
     setMaxUnlockedStep((step) => Math.max(step, 3));
-    setActiveStep("deploy");
     event.currentTarget.reset();
+  }
+
+  async function refreshDomainStatus(hostname: string) {
+    const payload = await api(`/api/admin/domains/${encodeURIComponent(hostname)}/status`);
+    setAttachedDomain(payload.domain);
+    toast.success(
+      payload.domain.status === "active" ? "Domain is active" : "Verification status refreshed",
+    );
   }
 
   function skipDomainStep() {
@@ -717,6 +733,13 @@ export default function AdminBuilder() {
                       </button>
                     </div>
                   </form>
+                  {attachedDomain ? (
+                    <DomainInstructions
+                      domain={attachedDomain}
+                      onContinue={() => setActiveStep("deploy")}
+                      onRefresh={() => void refreshDomainStatus(attachedDomain.hostname)}
+                    />
+                  ) : null}
                 </div>
               ) : (
                 <EmptyStep
@@ -784,6 +807,117 @@ export default function AdminBuilder() {
       </section>
     </main>
   );
+}
+
+function DomainInstructions({
+  domain,
+  onContinue,
+  onRefresh,
+}: {
+  domain: TenantDomain;
+  onContinue: () => void;
+  onRefresh: () => void;
+}) {
+  const records = getDnsRecords(domain);
+
+  return (
+    <div className={`${subtleCardClass} grid gap-4 p-4`}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <p className={`${eyebrowClass} m-0`}>DNS setup</p>
+          <h3 className="mb-0 mt-1 text-xl">{domain.hostname}</h3>
+          <p className="mb-0 mt-2 max-w-[720px] text-sm leading-[1.55] text-[var(--muted)]">
+            Add these records in the DNS provider for the root domain. For example, if the hostname
+            is `sky.vibecrypto.fun`, open DNS for `vibecrypto.fun` and add the CNAME host `sky`.
+          </p>
+        </div>
+        <span className={pillClass}>{domain.status}</span>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+        <div className="grid grid-cols-[110px_minmax(160px,1fr)_minmax(220px,1.3fr)] border-b border-[var(--border)] bg-[var(--surface-muted)] text-xs font-bold text-[var(--muted)] max-[760px]:hidden">
+          <span className="px-3 py-2">Type</span>
+          <span className="px-3 py-2">Name / Host</span>
+          <span className="px-3 py-2">Value</span>
+        </div>
+        {records.map((record, index) => (
+          <div
+            className="grid grid-cols-[110px_minmax(160px,1fr)_minmax(220px,1.3fr)] border-b border-[var(--border)] text-sm last:border-b-0 max-[760px]:grid-cols-1"
+            key={`${record.type}-${record.name}-${index}`}
+          >
+            <span className="px-3 py-2 font-bold uppercase max-[760px]:pb-0">{record.type}</span>
+            <code className="break-all px-3 py-2 text-[13px] text-[var(--text)]">
+              {record.name}
+            </code>
+            <code className="break-all px-3 py-2 text-[13px] text-[var(--text)]">
+              {record.value}
+            </code>
+            {record.reason ? (
+              <p className="col-span-3 m-0 border-t border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)] max-[760px]:col-span-1">
+                {record.reason}
+              </p>
+            ) : null}
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-2 text-sm leading-[1.55] text-[var(--muted)]">
+        <p className="m-0">
+          DNS can take a few minutes to propagate. After adding the records, click check status. Do
+          not publish the custom domain as active until Vercel marks it verified.
+        </p>
+        {domain.verificationData?.error ? (
+          <p className="m-0 text-[var(--bad)]">{String(domain.verificationData.error)}</p>
+        ) : null}
+      </div>
+
+      <div className="flex flex-wrap gap-2.5">
+        <button className={secondaryButtonClass} onClick={onRefresh} type="button">
+          Check status
+        </button>
+        <button className={buttonClass} onClick={onContinue} type="button">
+          Continue to deploy
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function getDnsRecords(domain: TenantDomain): DnsRecord[] {
+  const verificationData = domain.verificationData ?? {};
+  const cname = typeof verificationData.cname === "string" ? verificationData.cname : "cname.vercel-dns.com";
+  const verification = Array.isArray(verificationData.verification)
+    ? (verificationData.verification as Array<Record<string, unknown>>)
+    : [];
+
+  return [
+    {
+      type: "CNAME",
+      name: dnsHostLabel(domain.hostname),
+      value: cname,
+      reason: `Points ${domain.hostname} to this Vercel project.`,
+    },
+    ...verification
+      .map((record): DnsRecord | null => {
+        const type = String(record.type ?? "TXT").toUpperCase();
+        const name = String(record.name ?? record.domain ?? "");
+        const value = String(record.value ?? "");
+        if (!name || !value) return null;
+        return {
+          type,
+          name,
+          value,
+          reason: record.reason ? String(record.reason) : undefined,
+        };
+      })
+      .filter((record): record is DnsRecord => Boolean(record)),
+  ];
+}
+
+function dnsHostLabel(hostname: string) {
+  const parts = hostname.split(".");
+  if (parts.length <= 2) return hostname;
+  return parts.slice(0, -2).join(".");
 }
 
 function parseSlugs(value: string) {
