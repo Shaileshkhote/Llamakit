@@ -43,6 +43,9 @@ type VercelDomainResponse = {
 type VercelDomainConfigResponse = Record<string, unknown> & {
   configuredBy?: string | null;
   misconfigured?: boolean;
+  recommended?: {
+    records?: Array<Record<string, unknown>>;
+  };
   error?: { message?: string } | string;
 };
 
@@ -116,20 +119,27 @@ function dnsRecordsFromVercel(
     });
   }
 
-  const exactCnameTargets = findStrings(config, (value) => isExactVercelDnsTarget(value));
-  for (const value of exactCnameTargets) {
-    addDnsRecord(records, {
-      type: "CNAME",
-      name: dnsHostLabel(hostname),
-      value,
-      reason: `Route ${hostname} to the LlamaKit Vercel project.`,
-    });
+  const recommendedRecords = recommendedDnsRecordsFromConfig(hostname, config);
+  for (const record of recommendedRecords) {
+    addDnsRecord(records, record);
   }
 
   const configuredBy = typeof config?.configuredBy === "string" ? config.configuredBy.toUpperCase() : "";
-  const aTargets = findStrings(config, (value) => value.trim() === "76.76.21.21");
-  if (configuredBy === "A" || (records.size === 0 && aTargets.length > 0)) {
-    for (const value of aTargets.length ? aTargets : ["76.76.21.21"]) {
+  if (recommendedRecords.length === 0) {
+    const exactCnameTargets = findStrings(config, (value) => isExactVercelDnsTarget(value));
+    for (const value of exactCnameTargets) {
+      addDnsRecord(records, {
+        type: "CNAME",
+        name: dnsHostLabel(hostname),
+        value,
+        reason: `Route ${hostname} to the LlamaKit Vercel project.`,
+      });
+    }
+  }
+
+  const aTargets = findStrings(config, (value) => isRecommendedVercelARecord(value));
+  if (recommendedRecords.length === 0 && (configuredBy === "A" || (records.size === 0 && aTargets.length > 0))) {
+    for (const value of aTargets.length ? aTargets : ["216.198.79.1", "64.29.17.1"]) {
       addDnsRecord(records, {
         type: "A",
         name: dnsHostLabel(hostname),
@@ -140,6 +150,28 @@ function dnsRecordsFromVercel(
   }
 
   return Array.from(records.values());
+}
+
+function recommendedDnsRecordsFromConfig(
+  hostname: string,
+  config: VercelDomainConfigResponse | null | undefined,
+): DnsRecord[] {
+  const rawRecords = Array.isArray(config?.recommended?.records) ? config.recommended.records : [];
+  return rawRecords
+    .map((record): DnsRecord | null => {
+      const type = String(record.type ?? "").toUpperCase();
+      const name = String(record.name ?? "").trim() || dnsHostLabel(hostname);
+      const value = String(record.value ?? "").trim();
+      if (!type || !value) return null;
+
+      return {
+        type,
+        name,
+        value,
+        reason: `Vercel-recommended DNS record for ${hostname}.`,
+      };
+    })
+    .filter((record): record is DnsRecord => Boolean(record));
 }
 
 function addDnsRecord(records: Map<string, DnsRecord>, record: DnsRecord) {
@@ -167,6 +199,11 @@ function isGenericVercelCname(value: string) {
 function isExactVercelDnsTarget(value: string) {
   const normalized = value.trim().toLowerCase().replace(/\.$/, "");
   return normalized.endsWith(".vercel-dns.com") && !isGenericVercelCname(normalized);
+}
+
+function isRecommendedVercelARecord(value: string) {
+  const normalized = value.trim();
+  return normalized === "216.198.79.1" || normalized === "64.29.17.1" || normalized === "76.76.21.21";
 }
 
 function normalizeDnsRecordName(name: string, hostname: string, type: string) {
