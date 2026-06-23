@@ -47,7 +47,9 @@ Default admin secret for local development is `change-me` unless `ADMIN_SECRET` 
 ```bash
 DATABASE_URL=
 ADMIN_SECRET=change-me
+NEXT_PUBLIC_APP_HOST=llamakit.shaileshk.xyz
 NEXT_PUBLIC_ROOT_DOMAIN=llamapages.dev
+VERCEL_PROJECT_PRODUCTION_URL=
 VERCEL_API_TOKEN=
 VERCEL_PROJECT_ID=
 VERCEL_TEAM_ID=

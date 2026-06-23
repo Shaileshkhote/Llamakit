@@ -43,8 +43,18 @@ export function middleware(request: NextRequest) {
   }
 
   const rootDomain = env.NEXT_PUBLIC_ROOT_DOMAIN.toLowerCase()
+  const appHosts = new Set(
+    [env.NEXT_PUBLIC_APP_HOST, env.VERCEL_PROJECT_PRODUCTION_URL, rootDomain]
+      .filter((value): value is string => Boolean(value))
+      .map((value) => value.toLowerCase())
+  )
+
+  if (appHosts.has(hostname) || hostname === `www.${rootDomain}`) {
+    return NextResponse.next()
+  }
+
   const tenant =
-    hostname.endsWith(`.${rootDomain}`) && hostname !== rootDomain
+    hostname.endsWith(`.${rootDomain}`)
       ? hostname.slice(0, -(rootDomain.length + 1))
       : hostname
 
