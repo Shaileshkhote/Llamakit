@@ -139,12 +139,6 @@ class StubVercelDomainClient implements VercelDomainClient {
       status: "pending",
       verification: [
         {
-          type: "cname",
-          name: dnsHostLabel(hostname),
-          value: "cname.vercel-dns.com",
-          reason: "Fallback CNAME. The live Vercel API can return a domain-specific target.",
-        },
-        {
           type: "txt",
           name: `_vercel.${hostname}`,
           value: "stub-verification-token",
@@ -153,12 +147,6 @@ class StubVercelDomainClient implements VercelDomainClient {
       ],
     };
   }
-}
-
-function dnsHostLabel(hostname: string) {
-  const parts = hostname.split(".");
-  if (parts.length <= 2) return hostname;
-  return parts.slice(0, -2).join(".");
 }
 
 export function createVercelDomainClient(config: VercelApiConfig = {}): VercelDomainClient {

@@ -834,32 +834,42 @@ function DomainInstructions({
         <span className={pillClass}>{domain.status}</span>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
-        <div className="grid grid-cols-[110px_minmax(160px,1fr)_minmax(220px,1.3fr)] border-b border-[var(--border)] bg-[var(--surface-muted)] text-xs font-bold text-[var(--muted)] max-[760px]:hidden">
-          <span className="px-3 py-2">Type</span>
-          <span className="px-3 py-2">Name / Host</span>
-          <span className="px-3 py-2">Value</span>
-        </div>
-        {records.map((record, index) => (
-          <div
-            className="grid grid-cols-[110px_minmax(160px,1fr)_minmax(220px,1.3fr)] border-b border-[var(--border)] text-sm last:border-b-0 max-[760px]:grid-cols-1"
-            key={`${record.type}-${record.name}-${index}`}
-          >
-            <span className="px-3 py-2 font-bold uppercase max-[760px]:pb-0">{record.type}</span>
-            <code className="break-all px-3 py-2 text-[13px] text-[var(--text)]">
-              {record.name}
-            </code>
-            <code className="break-all px-3 py-2 text-[13px] text-[var(--text)]">
-              {record.value}
-            </code>
-            {record.reason ? (
-              <p className="col-span-3 m-0 border-t border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)] max-[760px]:col-span-1">
-                {record.reason}
-              </p>
-            ) : null}
+      {records.length ? (
+        <div className="overflow-hidden rounded-xl border border-[var(--border)] bg-[var(--surface)]">
+          <div className="grid grid-cols-[110px_minmax(160px,1fr)_minmax(220px,1.3fr)] border-b border-[var(--border)] bg-[var(--surface-muted)] text-xs font-bold text-[var(--muted)] max-[760px]:hidden">
+            <span className="px-3 py-2">Type</span>
+            <span className="px-3 py-2">Name / Host</span>
+            <span className="px-3 py-2">Value</span>
           </div>
-        ))}
-      </div>
+          {records.map((record, index) => (
+            <div
+              className="grid grid-cols-[110px_minmax(160px,1fr)_minmax(220px,1.3fr)] border-b border-[var(--border)] text-sm last:border-b-0 max-[760px]:grid-cols-1"
+              key={`${record.type}-${record.name}-${index}`}
+            >
+              <span className="px-3 py-2 font-bold uppercase max-[760px]:pb-0">
+                {record.type}
+              </span>
+              <code className="break-all px-3 py-2 text-[13px] text-[var(--text)]">
+                {record.name}
+              </code>
+              <code className="break-all px-3 py-2 text-[13px] text-[var(--text)]">
+                {record.value}
+              </code>
+              {record.reason ? (
+                <p className="col-span-3 m-0 border-t border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)] max-[760px]:col-span-1">
+                  {record.reason}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-[var(--border)] bg-[var(--surface)] p-4 text-sm leading-[1.55] text-[var(--muted)]">
+          Vercel did not return an exact DNS record through the API for this domain. If your Vercel
+          dashboard says "DNS Change Recommended", use that dashboard value exactly instead of a
+          generic CNAME.
+        </div>
+      )}
 
       <div className="grid gap-2 text-sm leading-[1.55] text-[var(--muted)]">
         <p className="m-0">
@@ -888,7 +898,7 @@ function getDnsRecords(domain: TenantDomain): DnsRecord[] {
   const cname =
     typeof verificationData.cname === "string" && verificationData.cname
       ? verificationData.cname
-      : "cname.vercel-dns.com";
+      : null;
   const verification = Array.isArray(verificationData.verification)
     ? (verificationData.verification as Array<Record<string, unknown>>)
     : [];
@@ -906,21 +916,32 @@ function getDnsRecords(domain: TenantDomain): DnsRecord[] {
       };
     })
     .filter((record): record is DnsRecord => Boolean(record));
-  const hasVercelCname = verificationRecords.some((record) => record.type === "CNAME");
+  const exactVerificationRecords = verificationRecords.filter(
+    (record) => record.type !== "CNAME" || !isGenericVercelCname(record.value),
+  );
+  const hasExactVercelCname = exactVerificationRecords.some((record) => record.type === "CNAME");
+  const shouldShowStoredCname = cname != null && !isGenericVercelCname(cname);
 
   return [
-    ...(hasVercelCname
+    ...(hasExactVercelCname
       ? []
-      : [
-          {
-            type: "CNAME",
-            name: dnsHostLabel(domain.hostname),
-            value: cname,
-            reason: `Points ${domain.hostname} to this Vercel project.`,
-          },
-        ]),
-    ...verificationRecords,
+      : shouldShowStoredCname
+        ? [
+            {
+              type: "CNAME",
+              name: dnsHostLabel(domain.hostname),
+              value: cname,
+              reason: `Vercel-recommended CNAME for ${domain.hostname}.`,
+            },
+          ]
+        : []),
+    ...exactVerificationRecords,
   ];
+}
+
+function isGenericVercelCname(value: string) {
+  const normalized = value.trim().toLowerCase().replace(/\.$/, "");
+  return normalized === "cname.vercel-dns.com" || normalized === "cname.vercel.com";
 }
 
 function dnsHostLabel(hostname: string) {
