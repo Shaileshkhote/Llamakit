@@ -9,7 +9,7 @@ import { OverviewCards } from "@/components/dashboard/OverviewCards";
 import { YieldTable } from "@/components/dashboard/YieldTable";
 import { formatUsd } from "@/lib/format";
 import type { DashboardData } from "@/types/metrics";
-import type { Tenant } from "@/types/tenant";
+import type { AnalyticsSite } from "@/types/site";
 
 type WorkspaceView = "summary" | "performance" | "economics" | "yields" | "methodology";
 
@@ -26,7 +26,7 @@ const eyebrowClass = "text-[13px] font-semibold text-[var(--muted)]";
 const dashboardGridClass = "grid grid-cols-12 gap-3.5 max-[760px]:grid-cols-1";
 const stackClass = "grid gap-3.5";
 
-export function DashboardWorkspace({ tenant, data }: { tenant: Tenant; data: DashboardData }) {
+export function DashboardWorkspace({ tenant, data }: { tenant: AnalyticsSite; data: DashboardData }) {
   const [view, setView] = useState<WorkspaceView>("summary");
   const availableViews = views.filter((item) => {
     if (item.id === "yields") return tenant.enabledModules.yields && data.yieldPools.length > 0;

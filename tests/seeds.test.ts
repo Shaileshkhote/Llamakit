@@ -1,33 +1,34 @@
 import { describe, expect, it } from "vitest";
-import { seedTenants } from "../lib/seeds";
+import { seedAnalyticsSites } from "../lib/seeds";
 
-describe("seed tenants", () => {
-  it("includes the initial protocol tenants", () => {
-    expect(seedTenants.map((tenant) => tenant.slug).sort()).toEqual(["aave", "lido", "uniswap"]);
+describe("seed analytics sites", () => {
+  it("includes the initial protocol analytics sites", () => {
+    expect(seedAnalyticsSites.map((site) => site.slug).sort()).toEqual(["aave", "lido", "uniswap"]);
   });
 
-  it("keeps tenant ids, slugs, and metric sources unique", () => {
-    const tenantIds = new Set<string>();
+  it("keeps site ids, slugs, and metric sources unique", () => {
+    const siteIds = new Set<string>();
     const slugs = new Set<string>();
 
-    for (const tenant of seedTenants) {
-      expect(tenant.id).toMatch(/^tenant-[a-z0-9-]+$/);
-      expect(tenant.slug).toMatch(/^[a-z0-9-]+$/);
-      expect(tenantIds.has(tenant.id)).toBe(false);
-      expect(slugs.has(tenant.slug)).toBe(false);
-      tenantIds.add(tenant.id);
-      slugs.add(tenant.slug);
+    for (const site of seedAnalyticsSites) {
+      expect(site.id).toMatch(/^site-[a-z0-9-]+$/);
+      expect(site.ownerUserId).toBeNull();
+      expect(site.slug).toMatch(/^[a-z0-9-]+$/);
+      expect(siteIds.has(site.id)).toBe(false);
+      expect(slugs.has(site.slug)).toBe(false);
+      siteIds.add(site.id);
+      slugs.add(site.slug);
 
-      expect(tenant.displayName).toBeTruthy();
-      expect(tenant.metricSources.tvlProtocol).toBe(tenant.slug);
-      expect(tenant.metricSources.yieldProjects.length).toBeGreaterThan(0);
-      expect(tenant.capabilities.tvl).toBe(true);
-      expect(tenant.enabledModules.overview).toBe(true);
+      expect(site.displayName).toBeTruthy();
+      expect(site.metricSources.tvlProtocol).toBe(site.slug);
+      expect(site.metricSources.yieldProjects.length).toBeGreaterThan(0);
+      expect(site.capabilities.tvl).toBe(true);
+      expect(site.enabledModules.overview).toBe(true);
     }
   });
 
   it("maps protocol-specific DefiLlama sources", () => {
-    const bySlug = new Map(seedTenants.map((tenant) => [tenant.slug, tenant]));
+    const bySlug = new Map(seedAnalyticsSites.map((site) => [site.slug, site]));
 
     expect(bySlug.get("uniswap")?.metricSources).toMatchObject({
       tvlProtocol: "uniswap",

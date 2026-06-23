@@ -1,5 +1,5 @@
 import type { DashboardData } from "@/types/metrics";
-import type { Tenant } from "@/types/tenant";
+import type { AnalyticsSite } from "@/types/site";
 import { formatTimestamp } from "@/lib/format";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
@@ -26,7 +26,7 @@ const knownProjectLinks: Record<
   },
 };
 
-export function ProtocolHeader({ tenant, data }: { tenant: Tenant; data: DashboardData }) {
+export function ProtocolHeader({ tenant, data }: { tenant: AnalyticsSite; data: DashboardData }) {
   const latest = Object.values(data.metrics).reduce(
     (max, metric) => Math.max(max, metric?.lastDataAt ?? 0),
     0,

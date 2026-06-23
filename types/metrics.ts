@@ -66,7 +66,7 @@ export type YieldPool = {
 }
 
 export type DashboardData = {
-  tenantSlug: string
+  siteSlug: string
   generatedAt: number
   capabilities: ProtocolCapabilities
   metrics: Partial<Record<MetricKey, MetricSeries>>

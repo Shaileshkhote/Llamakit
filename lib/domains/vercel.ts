@@ -1,6 +1,6 @@
 import { env } from "@/lib/env";
-import { createDomain, getDomain, updateDomain } from "@/lib/tenancy/store";
-import type { Tenant, TenantDomain } from "@/types/tenant";
+import { createDomain, deleteDomain, getDomain, updateDomain } from "@/lib/tenancy/store";
+import type { AnalyticsSite, AnalyticsSiteDomain } from "@/types/site";
 
 type DomainStatus = "pending" | "verified" | "error";
 type DomainVerification = {
@@ -161,13 +161,13 @@ export function createVercelDomainClient(config: VercelApiConfig = {}): VercelDo
   return new StubVercelDomainClient();
 }
 
-export async function addCustomDomain(tenant: Tenant, hostname: string): Promise<TenantDomain> {
+export async function addCustomDomain(site: AnalyticsSite, hostname: string): Promise<AnalyticsSiteDomain> {
   const normalized = normalizeForVercel(hostname);
   const result = await createVercelDomainClient().addProjectDomain(normalized);
   const cname = recommendedCname(result);
 
   return await createDomain({
-    tenantId: tenant.id,
+    analyticsSiteId: site.id,
     hostname: result.hostname,
     type: "custom",
     status: result.status === "verified" ? "active" : result.status === "error" ? "failed" : "verifying",
@@ -193,4 +193,10 @@ export async function refreshCustomDomain(hostname: string) {
       cname,
     },
   });
+}
+
+export async function removeCustomDomain(hostname: string) {
+  const normalized = normalizeForVercel(hostname);
+  await createVercelDomainClient().removeProjectDomain(normalized);
+  await deleteDomain(normalized);
 }

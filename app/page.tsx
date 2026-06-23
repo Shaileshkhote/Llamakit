@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { getAllTenants } from "@/lib/tenancy/store";
+import { getPublishedPublicAnalyticsSites } from "@/lib/tenancy/store";
 
 export const dynamic = "force-dynamic";
 
@@ -79,7 +79,7 @@ const cardIndexClasses = [
 ];
 
 export default async function HomePage() {
-  const tenants = (await getAllTenants()).filter((tenant) => tenant.published);
+  const { sites } = await getPublishedPublicAnalyticsSites({ limit: 6 });
 
   return (
     <main className="lk-home mx-auto w-[min(1160px,calc(100vw-40px))] pb-14 max-[760px]:w-[min(1160px,calc(100vw-24px))]">
@@ -94,9 +94,9 @@ export default async function HomePage() {
           <ThemeToggle />
           <Link
             className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-[11px] py-[7px] text-xs leading-none text-[var(--muted)]"
-            href="/admin"
+            href="/dashboard"
           >
-            Admin
+            Dashboard
           </Link>
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-[11px] py-[7px] text-xs leading-none text-[var(--muted)]">
             Unofficial LlamaKit prototype
@@ -121,7 +121,7 @@ export default async function HomePage() {
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
                 className="lk-home-cta inline-flex min-h-[42px] items-center justify-center rounded-lg border border-[var(--text)] bg-[var(--text)] px-[18px] text-sm font-bold text-[var(--surface)]"
-                href="/admin"
+                href="/signup"
               >
                 Create analytics site
               </Link>
@@ -165,25 +165,25 @@ export default async function HomePage() {
       </section>
 
       <section className="lk-home-dashboards py-2 pb-[18px]">
-        <h2 className="mb-[18px] mt-0 text-[28px]">Explore dashboards</h2>
+        <h2 className="mb-[18px] mt-0 text-[28px]">Explore LlamaKit-powered analytics sites</h2>
         <div className="grid grid-cols-12 gap-3.5 max-[760px]:grid-cols-1">
-          {tenants.map((tenant, index) => (
+          {sites.map((site, index) => (
             <Link
               className={`lk-home-dashboard-card group col-span-4 min-h-[190px] min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 max-[760px]:col-span-1 ${cardIndexClasses[index] ?? cardIndexClasses.at(-1)}`}
-              href={`/sites/${tenant.slug}`}
-              key={tenant.slug}
+              href={site.defaultUrl}
+              key={site.slug}
             >
               <div className="flex justify-between gap-3.5">
                 <div>
-                  <h3 className="m-0 text-2xl">{tenant.displayName}</h3>
-                  <p className="leading-[1.55] text-[var(--muted)]">{tenant.protocolDescription}</p>
+                  <h3 className="m-0 text-2xl">{site.displayName}</h3>
+                  <p className="leading-[1.55] text-[var(--muted)]">{site.protocolDescription}</p>
                 </div>
-                {tenant.logoUrl ? (
-                  <img alt="" src={tenant.logoUrl} className="size-[42px] rounded-full" />
+                {site.logoUrl ? (
+                  <img alt="" src={site.logoUrl} className="size-[42px] rounded-full" />
                 ) : null}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                {Object.entries(tenant.capabilities)
+                {Object.entries(site.capabilities)
                   .filter(([, enabled]) => enabled)
                   .slice(0, 4)
                   .map(([capability]) => (

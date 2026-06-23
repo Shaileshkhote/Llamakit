@@ -1,36 +1,27 @@
 import { NextResponse, type NextRequest } from "next/server"
 import { env } from "@/lib/env"
 
-const reservedPrefixes = ["/api", "/admin", "/embed", "/_next", "/favicon.ico"]
-const adminCookieName = "lamma_admin"
-
-function presentedAdminSecret(request: NextRequest) {
-  const auth = request.headers.get("authorization")
-  const bearer = auth?.startsWith("Bearer ") ? auth.slice("Bearer ".length).trim() : undefined
-  return request.headers.get("x-admin-secret")?.trim() || bearer || request.cookies.get(adminCookieName)?.value
-}
-
-function unauthorized(request: NextRequest) {
-  if (request.nextUrl.pathname.startsWith("/api/")) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  }
-
-  return new NextResponse("Unauthorized admin request.", {
-    status: 401,
-    headers: { "content-type": "text/plain; charset=utf-8" }
-  })
-}
+const reservedPrefixes = ["/api", "/admin", "/dashboard", "/login", "/signup", "/embed", "/_next", "/favicon.ico"]
+const sessionCookieName = "llamakit_session"
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const isAdminPath = pathname.startsWith("/api/admin")
+  const isProtectedDashboard = pathname.startsWith("/dashboard")
+  const isProtectedApi = pathname.startsWith("/api/sites")
+  const hasSession = Boolean(request.cookies.get(sessionCookieName)?.value)
 
-  if (isAdminPath) {
-    if (presentedAdminSecret(request) !== env.ADMIN_SECRET) {
-      return unauthorized(request)
+  if (pathname === "/admin" || pathname.startsWith("/admin/")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url))
+  }
+
+  if ((isProtectedDashboard || isProtectedApi) && !hasSession) {
+    if (isProtectedApi) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
-    return NextResponse.next()
+    const url = new URL("/login", request.url)
+    url.searchParams.set("next", pathname)
+    return NextResponse.redirect(url)
   }
 
   if (reservedPrefixes.some((prefix) => pathname.startsWith(prefix))) {
@@ -53,15 +44,15 @@ export function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
-  const tenant =
+  const siteSlug =
     hostname.endsWith(`.${rootDomain}`)
       ? hostname.slice(0, -(rootDomain.length + 1))
       : hostname
 
-  if (!tenant || tenant === "www") return NextResponse.next()
+  if (!siteSlug || siteSlug === "www") return NextResponse.next()
 
   const url = request.nextUrl.clone()
-  url.pathname = `/sites/${tenant}${pathname === "/" ? "" : pathname}`
+  url.pathname = `/sites/${siteSlug}${pathname === "/" ? "" : pathname}`
   return NextResponse.rewrite(url)
 }
 

@@ -7,9 +7,11 @@ The MVP demonstrates:
 - Protocol selection and per-metric DefiLlama source configuration
 - Capability-driven dashboard rendering
 - Server-side DefiLlama fetching, normalization, cache fallback, and source attribution
-- Branded public tenant pages at `/sites/[tenant]`
-- Admin builder at `/admin`
-- Iframe chart embeds at `/embed/[tenant]/[module]`
+- Account signup/login with owner-scoped analytics site management
+- Branded public analytics site pages at `/sites/[siteSlug]`
+- Dashboard builder at `/dashboard`
+- Public explorer API at `/api/explorer/sites`
+- Iframe chart embeds at `/embed/[siteSlug]/[module]`
 - Vercel custom-domain integration with stub mode when credentials are absent
 
 ## Stack
@@ -36,17 +38,16 @@ pnpm dev
 Local URLs:
 
 - Home: `http://localhost:3000`
-- Admin: `http://localhost:3000/admin`
+- Dashboard: `http://localhost:3000/dashboard`
+- Login: `http://localhost:3000/login`
+- Signup: `http://localhost:3000/signup`
 - Uniswap dashboard: `http://localhost:3000/sites/uniswap`
 - Embed: `http://localhost:3000/embed/uniswap/tvl?theme=light`
-
-Default admin secret for local development is `change-me` unless `ADMIN_SECRET` is set.
 
 ## Environment
 
 ```bash
 DATABASE_URL=
-ADMIN_SECRET=change-me
 NEXT_PUBLIC_APP_HOST=llamakit.shaileshk.xyz
 NEXT_PUBLIC_ROOT_DOMAIN=llamapages.dev
 VERCEL_PROJECT_PRODUCTION_URL=
@@ -55,7 +56,7 @@ VERCEL_PROJECT_ID=
 VERCEL_TEAM_ID=
 ```
 
-The current MVP uses an in-memory seeded tenant store so it can run immediately. `database/schema.sql` contains the Postgres target schema for persistent storage.
+Production account flows require `DATABASE_URL`. Local development can fall back to the in-memory seeded store so the public demo dashboards render immediately.
 
 ## Validation
 
@@ -65,7 +66,7 @@ pnpm typecheck
 pnpm build
 ```
 
-## Seed Tenants
+## Seed Analytics Sites
 
 Seed fixtures live in `lib/seeds`:
 
@@ -73,7 +74,7 @@ Seed fixtures live in `lib/seeds`:
 - Aave
 - Lido
 
-Each tenant has display metadata, DefiLlama source IDs, enabled modules, and initial capability flags.
+Each seed analytics site has display metadata, DefiLlama source IDs, enabled modules, and initial capability flags.
 
 ## Data Boundary
 

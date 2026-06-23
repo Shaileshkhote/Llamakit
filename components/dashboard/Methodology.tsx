@@ -1,9 +1,9 @@
 import type { DashboardData } from "@/types/metrics";
-import type { Tenant } from "@/types/tenant";
+import type { AnalyticsSite } from "@/types/site";
 import { formatTimestamp } from "@/lib/format";
 import { normalizeMethodologyText, splitSourceUrls } from "@/lib/normalization/methodology";
 
-export function Methodology({ tenant, data }: { tenant: Tenant; data: DashboardData }) {
+export function Methodology({ tenant, data }: { tenant: AnalyticsSite; data: DashboardData }) {
   const metrics = Object.values(data.metrics);
 
   return (

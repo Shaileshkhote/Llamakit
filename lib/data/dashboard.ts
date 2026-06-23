@@ -5,12 +5,12 @@ import { fetchStablecoinSupplySeries } from "@/lib/defillama/stablecoins";
 import { fetchTvlSeries } from "@/lib/defillama/tvl";
 import { fetchYieldPools } from "@/lib/defillama/yields";
 import { normalizeMethodologyText } from "@/lib/normalization/methodology";
-import { patchTenant } from "@/lib/tenancy/store";
+import { patchAnalyticsSite } from "@/lib/tenancy/store";
 import type { DashboardData, MetricKey, MetricSeries, ProtocolCapabilities } from "@/types/metrics";
 import { EMPTY_CAPABILITIES } from "@/types/metrics";
-import type { Tenant } from "@/types/tenant";
+import type { AnalyticsSite } from "@/types/site";
 
-async function getMetric(tenant: Tenant, metric: MetricKey): Promise<MetricSeries> {
+async function getMetric(tenant: AnalyticsSite, metric: MetricKey): Promise<MetricSeries> {
   const sources = tenant.metricSources;
 
   switch (metric) {
@@ -187,7 +187,7 @@ function isSupported(series: MetricSeries) {
   return series.status === "ok" || series.status === "stale";
 }
 
-export async function detectCapabilities(tenant: Tenant): Promise<ProtocolCapabilities> {
+export async function detectCapabilities(tenant: AnalyticsSite): Promise<ProtocolCapabilities> {
   const metricKeys: MetricKey[] = [
     "tvl",
     "fees",
@@ -214,11 +214,11 @@ export async function detectCapabilities(tenant: Tenant): Promise<ProtocolCapabi
     capabilities.yields = false;
   }
 
-  await patchTenant(tenant.slug, { capabilities });
+  await patchAnalyticsSite(tenant.slug, { capabilities });
   return capabilities;
 }
 
-export async function getDashboardData(tenant: Tenant): Promise<DashboardData> {
+export async function getDashboardData(tenant: AnalyticsSite): Promise<DashboardData> {
   const metricKeys: MetricKey[] = [
     "tvl",
     "fees",
@@ -245,7 +245,7 @@ export async function getDashboardData(tenant: Tenant): Promise<DashboardData> {
   }
 
   return {
-    tenantSlug: tenant.slug,
+    siteSlug: tenant.slug,
     generatedAt: Math.floor(Date.now() / 1000),
     capabilities: {
       ...tenant.capabilities,
