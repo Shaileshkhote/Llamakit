@@ -1,0 +1,19 @@
+.next/
+node_modules/
+
+# Local environment and secrets
+.env
+.env.*
+!.env.example
+
+# Deployment/runtime output
+.netlify/
+.vercel/
+coverage/
+dist/
+out/
+
+# Logs and caches
+*.log
+.DS_Store
+*.tsbuildinfo
