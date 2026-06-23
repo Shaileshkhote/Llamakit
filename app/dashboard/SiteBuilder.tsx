@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import toast from "react-hot-toast";
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
 import { EMPTY_CAPABILITIES, type ProtocolCapabilities } from "@/types/metrics";
 import type { User } from "@/types/auth";
@@ -84,7 +84,7 @@ const selectStyles = {
 };
 
 const shellClass =
-  "mx-auto w-[min(1160px,calc(100vw-40px))] pb-14 max-[760px]:w-[min(1160px,calc(100vw-24px))]";
+  "lk-dashboard mx-auto w-[min(1160px,calc(100vw-40px))] pb-14 max-[760px]:w-[min(1160px,calc(100vw-24px))]";
 const topbarClass =
   "flex items-center justify-between gap-[18px] py-[22px] max-[760px]:flex-col max-[760px]:items-start";
 const brandClass = "inline-flex items-center gap-2.5 text-[15px] font-bold";
@@ -92,13 +92,13 @@ const brandMarkClass =
   "grid size-[30px] place-items-center rounded-full border border-[var(--border)] bg-[var(--text)] text-xs text-[var(--surface)]";
 const pillClass =
   "inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-[11px] py-[7px] text-xs leading-none text-[var(--muted)]";
-const cardClass = "min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)]";
+const cardClass = "lk-dashboard-card min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)]";
 const subtleCardClass = "rounded-[14px] border border-[var(--border)] bg-[var(--surface-muted)]";
 const eyebrowClass = "text-[13px] font-semibold text-[var(--muted)]";
 const buttonClass =
-  "inline-flex min-h-[42px] items-center justify-center rounded-lg border border-[var(--text)] bg-[var(--text)] px-[18px] text-sm font-bold text-[var(--surface)]";
+  "lk-action-button inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-[var(--text)] bg-[var(--text)] px-[18px] text-sm font-bold text-[var(--surface)] disabled:pointer-events-none disabled:opacity-60";
 const secondaryButtonClass =
-  "inline-flex min-h-[42px] items-center justify-center rounded-lg border border-[var(--border)] bg-[var(--surface)] px-[18px] text-sm font-bold text-[var(--text)]";
+  "lk-action-button inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-[var(--border)] bg-[var(--surface)] px-[18px] text-sm font-bold text-[var(--text)] disabled:pointer-events-none disabled:opacity-60";
 const inputClass = `${pillClass} w-full justify-start rounded-xl text-left`;
 const fieldLabelClass = "grid gap-[5px] text-[13px] text-[var(--muted)]";
 const adminGridClass = "grid grid-cols-12 gap-3.5 max-[760px]:grid-cols-1";
@@ -111,11 +111,19 @@ export default function SiteBuilder({ user }: { user: User }) {
   const [search, setSearch] = useState("");
   const [protocolOptions, setProtocolOptions] = useState<ProtocolOption[]>([]);
   const [attachedDomain, setAttachedDomain] = useState<AnalyticsSiteDomain | null>(null);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [pendingAction, setPendingAction] = useState<string | null>(null);
+  const [autoRefreshDns, setAutoRefreshDns] = useState(true);
+  const [lastDomainCheck, setLastDomainCheck] = useState<string | null>(null);
   const selectedAnalyticsSite = useMemo(
     () => sites.find((site) => site.slug === selectedSlug),
     [selectedSlug, sites],
   );
   const activeStepIndex = wizardSteps.findIndex((step) => step.id === activeStep);
+  const profileInitial = (user.name || user.email).slice(0, 1).toUpperCase();
+  const visibleDomain =
+    attachedDomain ??
+    null;
 
   async function api(path: string, init: RequestInit = {}) {
     const response = await fetch(path, {
@@ -138,6 +146,11 @@ export default function SiteBuilder({ user }: { user: User }) {
     void api("/api/sites")
       .then((payload) => {
         setAnalyticsSites(payload.sites);
+        if (payload.sites?.length) {
+          setSelectedSlug((slug) => slug || payload.sites[0].slug);
+          setActiveStep((step) => (step === "protocol" ? "config" : step));
+          setMaxUnlockedStep((step) => Math.max(step, 3));
+        }
       })
       .catch((error) => toast.error(error.message));
   }, []);
@@ -187,68 +200,113 @@ export default function SiteBuilder({ user }: { user: User }) {
     setActiveStep(step);
   }
 
+  function startCreateSite() {
+    setSelectedSlug("");
+    setAttachedDomain(null);
+    setActiveStep("protocol");
+    setMaxUnlockedStep(0);
+    setProfileOpen(false);
+  }
+
+  function selectSite(site: AnalyticsSite, step: WizardStep = "config") {
+    setSelectedSlug(site.slug);
+    setAttachedDomain(null);
+    setActiveStep(step);
+    setMaxUnlockedStep(3);
+    setProfileOpen(false);
+  }
+
+  async function withPending<T>(action: string, task: () => Promise<T>) {
+    setPendingAction(action);
+    try {
+      return await task();
+    } finally {
+      setPendingAction((current) => (current === action ? null : current));
+    }
+  }
+
+  async function loadLatestDomain(site: AnalyticsSite) {
+    const payload = await api(`/api/sites/${site.slug}/domains`);
+    const domains = (payload.domains ?? []) as AnalyticsSiteDomain[];
+    setAttachedDomain(domains[0] ?? null);
+  }
+
+  async function manageDomains(site = selectedAnalyticsSite ?? sites[0]) {
+    if (!site) {
+      toast.error("Create an analytics site first");
+      return;
+    }
+
+    selectSite(site, "domain");
+    await withPending("load-domains", async () => {
+      await loadLatestDomain(site);
+    });
+  }
+
   async function createFromProtocol(option: ProtocolOption | null) {
     if (!option) return;
-    const now = new Date().toISOString();
-    const childProtocols = option.protocol.childProtocols.length
-      ? option.protocol.childProtocols.map((protocol) => protocol.slug)
-      : [option.value];
-    const dexProtocols = option.protocol.childProtocols
-      .filter((protocol) => protocol.category?.toLowerCase() === "dexs")
-      .map((protocol) => protocol.slug);
-    const optionProtocols = option.protocol.childProtocols
-      .filter((protocol) => protocol.category?.toLowerCase() === "options")
-      .map((protocol) => protocol.slug);
-    const site: AnalyticsSite = {
-      id: `site-${option.value}`,
-      ownerUserId: null,
-      slug: option.value,
-      displayName: option.protocol.name,
-      protocolDescription: `${option.protocol.name} analytics portal powered by DefiLlama public APIs.`,
-      logoUrl: option.protocol.logo,
-      websiteUrl: null,
-      twitterUrl: null,
-      primaryColor: "#2172e5",
-      accentColor: "#16885f",
-      backgroundStyle: "light",
-      metricSources: {
-        tvlProtocol: childProtocols[0] ?? option.value,
-        tvlProtocols: childProtocols,
-        feesProtocol: childProtocols[0] ?? option.value,
-        feesProtocols: childProtocols,
-        dexProtocol: dexProtocols[0] ?? childProtocols[0] ?? null,
-        dexProtocols,
-        optionsProtocol: optionProtocols[0] ?? null,
-        optionsProtocols: optionProtocols,
-        yieldProjects: childProtocols,
-        priceId: option.protocol.symbol ? `coingecko:${option.value}` : null,
-        stablecoinAssetId: null,
-        parentProtocol: option.protocol.parentProtocol,
-        childProtocols,
-      },
-      capabilities: EMPTY_CAPABILITIES,
-      enabledModules: {
-        overview: true,
-        performance: true,
-        chains: true,
-        economics: true,
-        yields: true,
-        methodology: true,
-      },
-      published: false,
-      publishedAt: null,
-      createdAt: now,
-      updatedAt: now,
-    };
+    await withPending("create-site", async () => {
+      const now = new Date().toISOString();
+      const childProtocols = option.protocol.childProtocols.length
+        ? option.protocol.childProtocols.map((protocol) => protocol.slug)
+        : [option.value];
+      const dexProtocols = option.protocol.childProtocols
+        .filter((protocol) => protocol.category?.toLowerCase() === "dexs")
+        .map((protocol) => protocol.slug);
+      const optionProtocols = option.protocol.childProtocols
+        .filter((protocol) => protocol.category?.toLowerCase() === "options")
+        .map((protocol) => protocol.slug);
+      const site: AnalyticsSite = {
+        id: `site-${option.value}`,
+        ownerUserId: null,
+        slug: option.value,
+        displayName: option.protocol.name,
+        protocolDescription: `${option.protocol.name} analytics portal powered by DefiLlama public APIs.`,
+        logoUrl: option.protocol.logo,
+        websiteUrl: null,
+        twitterUrl: null,
+        primaryColor: "#2172e5",
+        accentColor: "#16885f",
+        backgroundStyle: "light",
+        metricSources: {
+          tvlProtocol: childProtocols[0] ?? option.value,
+          tvlProtocols: childProtocols,
+          feesProtocol: childProtocols[0] ?? option.value,
+          feesProtocols: childProtocols,
+          dexProtocol: dexProtocols[0] ?? childProtocols[0] ?? null,
+          dexProtocols,
+          optionsProtocol: optionProtocols[0] ?? null,
+          optionsProtocols: optionProtocols,
+          yieldProjects: childProtocols,
+          priceId: option.protocol.symbol ? `coingecko:${option.value}` : null,
+          stablecoinAssetId: null,
+          parentProtocol: option.protocol.parentProtocol,
+          childProtocols,
+        },
+        capabilities: EMPTY_CAPABILITIES,
+        enabledModules: {
+          overview: true,
+          performance: true,
+          chains: true,
+          economics: true,
+          yields: true,
+          methodology: true,
+        },
+        published: false,
+        publishedAt: null,
+        createdAt: now,
+        updatedAt: now,
+      };
 
-    const payload = await api("/api/sites", {
-      method: "POST",
-      body: JSON.stringify(site),
+      const payload = await api("/api/sites", {
+        method: "POST",
+        body: JSON.stringify(site),
+      });
+      upsertAnalyticsSite(payload.site);
+      setMaxUnlockedStep((step) => Math.max(step, 1));
+      setActiveStep("config");
+      toast.success("Analytics site created");
     });
-    upsertAnalyticsSite(payload.site);
-    setMaxUnlockedStep((step) => Math.max(step, 1));
-    setActiveStep("config");
-    toast.success("Analytics site created");
   }
 
   async function saveAnalyticsSite(event: FormEvent<HTMLFormElement>, nextStep?: WizardStep) {
@@ -291,44 +349,52 @@ export default function SiteBuilder({ user }: { user: User }) {
       ) as AnalyticsSite["enabledModules"],
     };
 
-    const payload = await api(`/api/sites/${selectedAnalyticsSite.slug}`, {
-      method: "PATCH",
-      body: JSON.stringify(patch),
+    await withPending("save-site", async () => {
+      const payload = await api(`/api/sites/${selectedAnalyticsSite.slug}`, {
+        method: "PATCH",
+        body: JSON.stringify(patch),
+      });
+      upsertAnalyticsSite(payload.site);
+      if (nextStep) {
+        const nextIndex = wizardSteps.findIndex((step) => step.id === nextStep);
+        setMaxUnlockedStep((step) => Math.max(step, nextIndex));
+        setActiveStep(nextStep);
+      }
+      toast.success("Analytics site saved");
     });
-    upsertAnalyticsSite(payload.site);
-    if (nextStep) {
-      const nextIndex = wizardSteps.findIndex((step) => step.id === nextStep);
-      setMaxUnlockedStep((step) => Math.max(step, nextIndex));
-      setActiveStep(nextStep);
-    }
-    toast.success("Analytics site saved");
   }
 
   async function detectCapabilities() {
     if (!selectedAnalyticsSite) return;
-    const payload = await api(`/api/sites/${selectedAnalyticsSite.slug}/detect-capabilities`, {
-      method: "POST",
+    await withPending("detect", async () => {
+      const payload = await api(`/api/sites/${selectedAnalyticsSite.slug}/detect-capabilities`, {
+        method: "POST",
+      });
+      upsertAnalyticsSite({ ...selectedAnalyticsSite, capabilities: payload.capabilities as ProtocolCapabilities });
+      toast.success("Capabilities refreshed");
     });
-    upsertAnalyticsSite({ ...selectedAnalyticsSite, capabilities: payload.capabilities as ProtocolCapabilities });
-    toast.success("Capabilities refreshed");
   }
 
   async function publishAnalyticsSite() {
     if (!selectedAnalyticsSite) return;
-    const payload = await api(`/api/sites/${selectedAnalyticsSite.slug}/publish`, {
-      method: "POST",
+    await withPending("publish", async () => {
+      const payload = await api(`/api/sites/${selectedAnalyticsSite.slug}/publish`, {
+        method: "POST",
+      });
+      upsertAnalyticsSite(payload.site);
+      toast.success("Analytics site published");
     });
-    upsertAnalyticsSite(payload.site);
-    toast.success("Analytics site published");
   }
 
   async function saveDraft() {
     if (!selectedAnalyticsSite) return;
-    const payload = await api(`/api/sites/${selectedAnalyticsSite.slug}/draft`, {
-      method: "POST",
+    await withPending("draft", async () => {
+      const payload = await api(`/api/sites/${selectedAnalyticsSite.slug}/draft`, {
+        method: "POST",
+      });
+      upsertAnalyticsSite(payload.site);
+      toast.success("Saved as draft");
     });
-    upsertAnalyticsSite(payload.site);
-    toast.success("Saved as draft");
   }
 
   async function addDomain(event: FormEvent<HTMLFormElement>) {
@@ -336,25 +402,35 @@ export default function SiteBuilder({ user }: { user: User }) {
     if (!selectedAnalyticsSite) return;
     const form = new FormData(event.currentTarget);
     const hostname = String(form.get("hostname") ?? "");
-    const payload = await api(`/api/sites/${selectedAnalyticsSite.slug}/domains`, {
-      method: "POST",
-      body: JSON.stringify({ hostname }),
+    await withPending("attach-domain", async () => {
+      const payload = await api(`/api/sites/${selectedAnalyticsSite.slug}/domains`, {
+        method: "POST",
+        body: JSON.stringify({ hostname }),
+      });
+      setAttachedDomain(payload.domain);
+      setAutoRefreshDns(true);
+      setLastDomainCheck(new Date().toISOString());
+      toast.success(`Domain ${payload.domain.hostname} added. Add the DNS records below.`);
+      setMaxUnlockedStep((step) => Math.max(step, 3));
+      event.currentTarget.reset();
     });
-    setAttachedDomain(payload.domain);
-    toast.success(`Domain ${payload.domain.hostname} added. Add the DNS records below.`);
-    setMaxUnlockedStep((step) => Math.max(step, 3));
-    event.currentTarget.reset();
   }
 
-  async function refreshDomainStatus(hostname: string) {
+  async function refreshDomainStatus(hostname: string, options: { silent?: boolean } = {}) {
     if (!selectedAnalyticsSite) return;
-    const payload = await api(
-      `/api/sites/${selectedAnalyticsSite.slug}/domains/${encodeURIComponent(hostname)}/status`,
-    );
-    setAttachedDomain(payload.domain);
-    toast.success(
-      payload.domain.status === "active" ? "Domain is active" : "Verification status refreshed",
-    );
+    await withPending(options.silent ? "auto-refresh-domain" : "refresh-domain", async () => {
+      const payload = await api(
+        `/api/sites/${selectedAnalyticsSite.slug}/domains/${encodeURIComponent(hostname)}/status`,
+      );
+      setAttachedDomain(payload.domain);
+      setLastDomainCheck(new Date().toISOString());
+      if (!options.silent) {
+        toast.success(
+          payload.domain.status === "active" ? "Domain is active" : "Verification status refreshed",
+        );
+      }
+      if (payload.domain.status === "active") setAutoRefreshDns(false);
+    });
   }
 
   function skipDomainStep() {
@@ -363,9 +439,28 @@ export default function SiteBuilder({ user }: { user: User }) {
   }
 
   async function logout() {
-    await api("/api/auth/logout", { method: "POST" }).catch(() => null);
-    window.location.href = "/login";
+    await withPending("logout", async () => {
+      await api("/api/auth/logout", { method: "POST" }).catch(() => null);
+      window.location.href = "/login";
+    });
   }
+
+  useEffect(() => {
+    if (!attachedDomain || attachedDomain.status === "active" || !autoRefreshDns) return;
+
+    let attempts = 0;
+    const interval = window.setInterval(() => {
+      attempts += 1;
+      if (attempts > 18) {
+        setAutoRefreshDns(false);
+        return;
+      }
+      void refreshDomainStatus(attachedDomain.hostname, { silent: true });
+    }, 10000);
+
+    return () => window.clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [attachedDomain?.hostname, attachedDomain?.status, autoRefreshDns, selectedAnalyticsSite?.slug]);
 
   return (
     <main className={shellClass}>
@@ -374,13 +469,39 @@ export default function SiteBuilder({ user }: { user: User }) {
           <span className={brandMarkClass}>DL</span>
           <span>DefiLlama</span>
         </a>
-        <div className="flex flex-wrap gap-2.5">
+        <div className="relative flex flex-wrap items-center gap-2.5">
           <ThemeToggle />
-          <span className={pillClass}>{user.email}</span>
-          <button className={secondaryButtonClass} onClick={() => void logout()} type="button">
-            Logout
+          <ActionButton className={buttonClass} onClick={startCreateSite} testId="create-site-button">
+            Create site
+          </ActionButton>
+          <button
+            aria-expanded={profileOpen}
+            className="lk-profile-button inline-flex min-h-[42px] items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] py-1.5 pl-1.5 pr-3 text-sm font-bold text-[var(--text)]"
+            data-testid="profile-menu-button"
+            onClick={() => setProfileOpen((open) => !open)}
+            type="button"
+          >
+            <span className="grid size-8 place-items-center rounded-full bg-[var(--text)] text-xs text-[var(--surface)]">
+              {profileInitial}
+            </span>
+            <span className="max-w-[160px] truncate">{user.name || user.email}</span>
           </button>
-          <span className={pillClass}>Unofficial LlamaKit prototype</span>
+          {profileOpen ? (
+            <ProfileMenu
+              currentSite={selectedAnalyticsSite}
+              loading={pendingAction}
+              onCreateSite={startCreateSite}
+              onLogout={() => void logout()}
+              onManageDomains={() => void manageDomains()}
+              onManageSites={() => {
+                setActiveStep(selectedAnalyticsSite ? "config" : "protocol");
+                setProfileOpen(false);
+              }}
+              onSelectSite={selectSite}
+              sites={sites}
+              user={user}
+            />
+          ) : null}
         </div>
       </nav>
 
@@ -405,29 +526,17 @@ export default function SiteBuilder({ user }: { user: User }) {
             <p className={`${eyebrowClass} m-0`}>My analytics sites</p>
             <h2 className="m-0 mt-1 text-2xl">{sites.length ? `${sites.length} site${sites.length === 1 ? "" : "s"}` : "No sites yet"}</h2>
           </div>
-          <button
-            className={secondaryButtonClass}
-            onClick={() => {
-              setSelectedSlug("");
-              setActiveStep("protocol");
-              setMaxUnlockedStep(0);
-            }}
-            type="button"
-          >
-            Create analytics site
-          </button>
+          <ActionButton className={secondaryButtonClass} onClick={startCreateSite}>
+            New site
+          </ActionButton>
         </div>
         {sites.length ? (
           <div className="grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-2.5">
             {sites.map((site) => (
               <button
-                className={`${subtleCardClass} grid gap-2 p-3 text-left`}
+                className={`${subtleCardClass} lk-site-card grid gap-2 p-3 text-left`}
                 key={site.slug}
-                onClick={() => {
-                  setSelectedSlug(site.slug);
-                  setActiveStep("config");
-                  setMaxUnlockedStep(3);
-                }}
+                onClick={() => selectSite(site)}
                 type="button"
               >
                 <span className="flex items-center justify-between gap-3">
@@ -506,7 +615,7 @@ export default function SiteBuilder({ user }: { user: User }) {
         </aside>
 
         <section className={`${cardClass} col-span-9 overflow-hidden max-[760px]:col-span-1`}>
-          <div className="p-8 max-[760px]:p-6">
+          <div className="lk-step-content p-8 max-[760px]:p-6" key={activeStep}>
             {activeStep === "protocol" ? (
               <div className="grid gap-[18px]">
                 <div>
@@ -526,7 +635,13 @@ export default function SiteBuilder({ user }: { user: User }) {
                   options={protocolOptions}
                   placeholder="Search DefiLlama protocols"
                   styles={selectStyles}
+                  isDisabled={pendingAction === "create-site"}
                 />
+                {pendingAction === "create-site" ? (
+                  <p className="m-0 inline-flex items-center gap-2 text-sm text-[var(--muted)]">
+                    <Spinner /> Creating source groups from DefiLlama registry
+                  </p>
+                ) : null}
                 <div className={`${subtleCardClass} p-4`}>
                   <strong>Parent protocol behavior</strong>
                   <p className="mb-0 leading-[1.6] text-[var(--muted)]">
@@ -545,11 +660,27 @@ export default function SiteBuilder({ user }: { user: User }) {
                   onSubmit={(event) => void saveAnalyticsSite(event, "domain")}
                   className="grid gap-3.5"
                 >
-                  <div>
-                    <p className={`${eyebrowClass} m-0`}>Step 2</p>
-                    <h2 className="mb-0 mt-2 text-[30px]">
-                      Configure {selectedAnalyticsSite.displayName}
-                    </h2>
+                  <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface-muted)] p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {selectedAnalyticsSite.logoUrl ? (
+                          <img
+                            alt=""
+                            className="size-11 rounded-full border border-[var(--border)] bg-[var(--surface)] object-cover"
+                            src={selectedAnalyticsSite.logoUrl}
+                          />
+                        ) : null}
+                        <div>
+                          <p className={`${eyebrowClass} m-0`}>Step 2</p>
+                          <h2 className="mb-0 mt-1 text-[30px]">
+                            Configure {selectedAnalyticsSite.displayName}
+                          </h2>
+                        </div>
+                      </div>
+                      <span className={pillClass}>
+                        {selectedAnalyticsSite.published ? "live" : "draft"}
+                      </span>
+                    </div>
                   </div>
                   <Field
                     name="displayName"
@@ -712,9 +843,9 @@ export default function SiteBuilder({ user }: { user: User }) {
                     >
                       Back
                     </button>
-                    <button className={buttonClass} type="submit">
+                    <ActionButton className={buttonClass} loading={pendingAction === "save-site"} type="submit">
                       Save and continue
-                    </button>
+                    </ActionButton>
                   </div>
                 </form>
               ) : (
@@ -745,23 +876,26 @@ export default function SiteBuilder({ user }: { user: User }) {
                       suppressHydrationWarning
                     />
                     <div className="flex flex-wrap gap-2.5">
-                      <button className={buttonClass} type="submit">
+                      <ActionButton className={buttonClass} loading={pendingAction === "attach-domain"} type="submit">
                         Attach domain
-                      </button>
-                      <button
+                      </ActionButton>
+                      <ActionButton
                         className={secondaryButtonClass}
                         onClick={skipDomainStep}
                         type="button"
                       >
                         Skip for now
-                      </button>
+                      </ActionButton>
                     </div>
                   </form>
-                  {attachedDomain ? (
+                  {visibleDomain ? (
                     <DomainInstructions
-                      domain={attachedDomain}
+                      autoRefresh={autoRefreshDns}
+                      domain={visibleDomain}
+                      isRefreshing={pendingAction === "refresh-domain" || pendingAction === "auto-refresh-domain"}
+                      lastCheckedAt={lastDomainCheck}
                       onContinue={() => setActiveStep("deploy")}
-                      onRefresh={() => void refreshDomainStatus(attachedDomain.hostname)}
+                      onRefresh={() => void refreshDomainStatus(visibleDomain.hostname)}
                     />
                   ) : null}
                 </div>
@@ -796,13 +930,14 @@ export default function SiteBuilder({ user }: { user: User }) {
                     ))}
                   </div>
                   <div className="flex flex-wrap gap-2.5">
-                    <button
+                    <ActionButton
                       className={secondaryButtonClass}
-                      onClick={detectCapabilities}
+                      loading={pendingAction === "detect"}
+                      onClick={() => void detectCapabilities()}
                       type="button"
                     >
                       Detect capabilities
-                    </button>
+                    </ActionButton>
                     <a
                       className={secondaryButtonClass}
                       href={`/sites/${selectedAnalyticsSite.slug}`}
@@ -811,12 +946,12 @@ export default function SiteBuilder({ user }: { user: User }) {
                     >
                       Preview
                     </a>
-                    <button className={secondaryButtonClass} onClick={saveDraft} type="button">
+                    <ActionButton className={secondaryButtonClass} loading={pendingAction === "draft"} onClick={() => void saveDraft()} type="button">
                       Save draft
-                    </button>
-                    <button className={buttonClass} onClick={publishAnalyticsSite} type="button">
+                    </ActionButton>
+                    <ActionButton className={buttonClass} loading={pendingAction === "publish"} onClick={() => void publishAnalyticsSite()} type="button">
                       Deploy
-                    </button>
+                    </ActionButton>
                   </div>
                 </div>
               ) : (
@@ -834,28 +969,51 @@ export default function SiteBuilder({ user }: { user: User }) {
 }
 
 function DomainInstructions({
+  autoRefresh,
   domain,
+  isRefreshing,
+  lastCheckedAt,
   onContinue,
   onRefresh,
 }: {
+  autoRefresh: boolean;
   domain: AnalyticsSiteDomain;
+  isRefreshing: boolean;
+  lastCheckedAt: string | null;
   onContinue: () => void;
   onRefresh: () => void;
 }) {
   const records = getDnsRecords(domain);
+  const isActive = domain.status === "active";
 
   return (
     <div className={`${subtleCardClass} grid gap-4 p-4`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+        <div className="flex gap-3">
+          <span
+            aria-hidden="true"
+            className={`lk-dns-radar mt-1 ${isActive ? "is-active" : isRefreshing ? "is-checking" : ""}`}
+          />
+          <div>
           <p className={`${eyebrowClass} m-0`}>DNS setup</p>
           <h3 className="mb-0 mt-1 text-xl">{domain.hostname}</h3>
           <p className="mb-0 mt-2 max-w-[720px] text-sm leading-[1.55] text-[var(--muted)]">
             LlamaKit has attached this hostname to the LlamaKit Vercel project. Add the exact DNS
             records below in the customer DNS provider, then check status.
           </p>
+          {lastCheckedAt || (autoRefresh && !isActive) ? (
+            <p className="m-0 mt-2 text-xs text-[var(--soft)]">
+              {lastCheckedAt
+                ? `Last checked ${new Date(lastCheckedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`
+                : "Waiting for first verification check"}
+              {autoRefresh && !isActive ? " • auto-refreshing every 10s" : ""}
+            </p>
+          ) : null}
+          </div>
         </div>
-        <span className={pillClass}>{domain.status}</span>
+        <span className={`${pillClass} ${isActive ? "border-[var(--good)] text-[var(--good)]" : ""}`}>
+          {isRefreshing ? "checking" : domain.status}
+        </span>
       </div>
 
       {records.length ? (
@@ -867,7 +1025,7 @@ function DomainInstructions({
           </div>
           {records.map((record, index) => (
             <div
-              className="grid grid-cols-[110px_minmax(160px,1fr)_minmax(220px,1.3fr)] border-b border-[var(--border)] text-sm last:border-b-0 max-[760px]:grid-cols-1"
+              className="lk-record-row grid grid-cols-[110px_minmax(160px,1fr)_minmax(220px,1.3fr)] border-b border-[var(--border)] text-sm last:border-b-0 max-[760px]:grid-cols-1"
               key={`${record.type}-${record.name}-${index}`}
             >
               <span className="px-3 py-2 font-bold uppercase max-[760px]:pb-0">
@@ -906,15 +1064,112 @@ function DomainInstructions({
       </div>
 
       <div className="flex flex-wrap gap-2.5">
-        <button className={secondaryButtonClass} onClick={onRefresh} type="button">
+        <ActionButton className={secondaryButtonClass} loading={isRefreshing} onClick={onRefresh} type="button">
           Check status
-        </button>
-        <button className={buttonClass} onClick={onContinue} type="button">
+        </ActionButton>
+        <ActionButton className={buttonClass} onClick={onContinue} type="button">
           Continue to deploy
-        </button>
+        </ActionButton>
       </div>
     </div>
   );
+}
+
+function ProfileMenu({
+  currentSite,
+  loading,
+  onCreateSite,
+  onLogout,
+  onManageDomains,
+  onManageSites,
+  onSelectSite,
+  sites,
+  user,
+}: {
+  currentSite: AnalyticsSite | undefined;
+  loading: string | null;
+  onCreateSite: () => void;
+  onLogout: () => void;
+  onManageDomains: () => void;
+  onManageSites: () => void;
+  onSelectSite: (site: AnalyticsSite) => void;
+  sites: AnalyticsSite[];
+  user: User;
+}) {
+  return (
+    <div className="lk-profile-menu absolute right-0 top-[calc(100%+10px)] z-20 grid w-[340px] gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2.5 max-[760px]:left-0 max-[760px]:right-auto max-[760px]:w-[min(340px,calc(100vw-24px))]">
+      <div className="rounded-xl bg-[var(--surface-muted)] p-3">
+        <p className="m-0 text-xs font-bold text-[var(--muted)]">Signed in as</p>
+        <p className="m-0 mt-1 truncate text-sm font-bold">{user.name || user.email}</p>
+        <p className="m-0 truncate text-xs text-[var(--muted)]">{user.email}</p>
+      </div>
+      <div className="grid gap-1">
+        <button className="lk-menu-item" onClick={onManageSites} type="button">
+          <span>Manage sites</span>
+          <span>{sites.length}</span>
+        </button>
+        <button className="lk-menu-item" onClick={onManageDomains} type="button">
+          <span>Manage domains</span>
+          <span>{currentSite?.displayName ?? "Select site"}</span>
+        </button>
+        <button className="lk-menu-item" onClick={onCreateSite} type="button">
+          <span>Create new site</span>
+          <span>New</span>
+        </button>
+      </div>
+      {sites.length ? (
+        <div className="max-h-[220px] overflow-auto rounded-xl border border-[var(--border)]">
+          {sites.map((site) => (
+            <button
+              className="lk-menu-site"
+              key={site.slug}
+              onClick={() => onSelectSite(site)}
+              type="button"
+            >
+              <span className="min-w-0">
+                <span className="block truncate font-bold">{site.displayName}</span>
+                <span className="block truncate text-xs text-[var(--muted)]">/sites/{site.slug}</span>
+              </span>
+              <span className={pillClass}>{site.published ? "live" : "draft"}</span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+      <button className="lk-menu-item text-[var(--bad)]" disabled={loading === "logout"} onClick={onLogout} type="button">
+        <span>Logout</span>
+        {loading === "logout" ? <Spinner /> : <span>Exit</span>}
+      </button>
+    </div>
+  );
+}
+
+function ActionButton({
+  children,
+  className,
+  disabled,
+  loading = false,
+  onClick,
+  testId,
+  type = "button",
+}: {
+  children: ReactNode;
+  className: string;
+  disabled?: boolean;
+  loading?: boolean;
+  onClick?: () => void;
+  testId?: string;
+  type?: "button" | "submit";
+}) {
+  return (
+    <button className={className} data-testid={testId} disabled={disabled || loading} onClick={onClick} type={type}>
+      {loading ? <Spinner /> : null}
+      <span>{children}</span>
+    </button>
+  );
+}
+
+function Spinner() {
+  return <span aria-hidden="true" className="lk-spinner" />;
 }
 
 function getDnsRecords(domain: AnalyticsSiteDomain): DnsRecord[] {

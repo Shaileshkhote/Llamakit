@@ -318,7 +318,7 @@ class StubVercelDomainClient implements VercelDomainClient {
           type: "txt",
           name: `_vercel.${hostname}`,
           value: "stub-verification-token",
-          reason: "Set VERCEL_API_TOKEN and VERCEL_PROJECT_ID to use the real Vercel Domains API.",
+          reason: "LlamaKit domain automation is not connected to the Vercel project in this environment.",
         },
       ],
     };
