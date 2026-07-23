@@ -195,6 +195,28 @@ create table if not exists project_source_connections (
   unique (project_id, provider)
 );
 
+create table if not exists project_prompts (
+  id text primary key,
+  project_id text not null references projects(id) on delete cascade,
+  prompt text not null,
+  status text not null check (status in ('coming_soon')) default 'coming_soon',
+  created_at timestamptz not null default now()
+);
+
+create table if not exists project_environment_variables (
+  id text primary key,
+  project_id text not null references projects(id) on delete cascade,
+  key text not null,
+  context text not null check (context in ('production', 'preview', 'development')),
+  scope text not null check (scope in ('build', 'runtime')),
+  encrypted_value text not null,
+  value_preview text not null default '••••••••',
+  is_secret boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now(),
+  unique (project_id, key, context, scope)
+);
+
 create table if not exists github_webhook_deliveries (
   id text primary key,
   delivery_id text not null unique,
@@ -226,6 +248,8 @@ create index if not exists project_versions_project_id_idx on project_versions(p
 create index if not exists builds_project_id_idx on builds(project_id, created_at desc);
 create index if not exists deployments_project_id_idx on deployments(project_id, created_at desc);
 create index if not exists project_domains_project_id_idx on project_domains(project_id);
+create index if not exists project_prompts_project_id_idx on project_prompts(project_id, created_at desc);
+create index if not exists project_environment_variables_project_id_idx on project_environment_variables(project_id, context, scope);
 create index if not exists user_sessions_token_hash_idx on user_sessions(token_hash);
 create index if not exists oauth_accounts_user_id_idx on oauth_accounts(user_id);
 create index if not exists github_installations_user_id_idx on github_installations(user_id);

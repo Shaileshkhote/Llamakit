@@ -48,25 +48,30 @@ export async function createInstallationToken(installationId: number) {
 
 export async function fetchInstallationRepositories(installationId: number) {
   const token = await createInstallationToken(installationId)
-  const response = await fetch("https://api.github.com/installation/repositories", {
-    headers: {
-      accept: "application/vnd.github+json",
-      authorization: `Bearer ${token}`,
-      "x-github-api-version": "2022-11-28",
-    },
-  })
-  if (!response.ok) throw new Error("Could not list installation repositories.")
-  const data = (await response.json()) as {
-    repositories?: Array<{
-      id: number
-      name: string
-      full_name: string
-      private: boolean
-      default_branch: string
-      owner: { login: string }
-    }>
+  const repositories: Array<{
+    id: number
+    name: string
+    full_name: string
+    private: boolean
+    default_branch: string
+    owner: { login: string }
+    updated_at?: string
+  }> = []
+  for (let page = 1; page <= 20; page += 1) {
+    const response = await fetch(`https://api.github.com/installation/repositories?per_page=100&page=${page}`, {
+      headers: {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${token}`,
+        "x-github-api-version": "2022-11-28",
+      },
+    })
+    if (!response.ok) throw new Error("Could not list installation repositories.")
+    const data = (await response.json()) as { repositories?: typeof repositories }
+    const batch = data.repositories ?? []
+    repositories.push(...batch)
+    if (batch.length < 100) break
   }
-  return data.repositories ?? []
+  return repositories
 }
 
 export async function fetchRepositoryFiles(input: {
@@ -89,7 +94,7 @@ export async function fetchRepositoryFiles(input: {
   )
   if (!treeResponse.ok) throw new Error("Could not fetch repository tree.")
   const tree = (await treeResponse.json()) as {
-    tree?: Array<{ path: string; type: "blob" | "tree"; size?: number }>
+    tree?: Array<{ path: string; type: "blob" | "tree"; size?: number; url?: string }>
   }
   const root = input.rootDirectory === "." ? "" : `${input.rootDirectory.replace(/^\/+|\/+$/g, "")}/`
   const files = (tree.tree ?? [])
@@ -100,14 +105,23 @@ export async function fetchRepositoryFiles(input: {
 
   const result: ProjectSourceFile[] = []
   for (const file of files) {
-    const rawResponse = await fetch(
-      `https://raw.githubusercontent.com/${input.owner}/${input.repo}/${encodeURIComponent(input.branch)}/${file.path}`,
-      { headers: { authorization: `Bearer ${token}` } },
-    )
+    if (!file.url) continue
+    const rawResponse = await fetch(file.url, {
+      headers: {
+        accept: "application/vnd.github+json",
+        authorization: `Bearer ${token}`,
+        "x-github-api-version": "2022-11-28",
+      },
+    })
     if (!rawResponse.ok) continue
+    const blob = (await rawResponse.json()) as { content?: string; encoding?: string }
+    const content =
+      blob.encoding === "base64" && blob.content
+        ? Buffer.from(blob.content.replace(/\n/g, ""), "base64").toString("utf8")
+        : ""
     result.push({
       path: root ? file.path.slice(root.length) : file.path,
-      content: await rawResponse.text(),
+      content,
     })
   }
   return result

@@ -2,7 +2,7 @@
 import { promises as fs } from "node:fs"
 import os from "node:os"
 import path from "node:path"
-import { randomUUID } from "node:crypto"
+import { createDecipheriv, createHash, randomUUID } from "node:crypto"
 import { spawn } from "node:child_process"
 import process from "node:process"
 import pg from "pg"
@@ -66,16 +66,41 @@ function dockerCommand(value) {
   return String(value || "").replace(/\\/g, "\\\\").replace(/"/g, '\\"')
 }
 
-function generatedDockerfile(project) {
+function envEncryptionKey() {
+  const source = process.env.ENV_ENCRYPTION_KEY || process.env.DATABASE_URL || "llamakit-local-development-key"
+  return createHash("sha256").update(source).digest()
+}
+
+function decryptEnvValue(payload) {
+  const [ivPart, tagPart, encryptedPart] = String(payload || "").split(".")
+  if (!ivPart || !tagPart || !encryptedPart) return ""
+  const decipher = createDecipheriv("aes-256-gcm", envEncryptionKey(), Buffer.from(ivPart, "base64url"))
+  decipher.setAuthTag(Buffer.from(tagPart, "base64url"))
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedPart, "base64url")),
+    decipher.final(),
+  ]).toString("utf8")
+}
+
+function envLines(buildEnv) {
+  return Object.keys(buildEnv)
+    .sort()
+    .map((key) => `ARG ${key}\nENV ${key}=$${key}`)
+    .join("\n")
+}
+
+function generatedDockerfile(project, buildEnv) {
   const installCommand = dockerCommand(project.install_command || "pnpm install")
   const buildCommand = dockerCommand(project.build_command || "pnpm build")
   const startCommand = dockerCommand(project.start_command || "pnpm start")
+  const buildEnvLines = envLines(buildEnv)
 
   return `FROM node:22-alpine
 WORKDIR /app
 RUN apk add --no-cache git python3 make g++ libc6-compat
 RUN corepack enable && corepack prepare pnpm@10.17.0 --activate
 RUN pnpm config set block-exotic-subdeps false || true
+${buildEnvLines}
 COPY . .
 RUN printf '\\n# Added by LlamaKit build worker for non-interactive container builds\\ndangerouslyAllowAllBuilds: true\\nneverBuiltDependencies: []\\n' >> pnpm-workspace.yaml
 RUN ${installCommand}
@@ -158,6 +183,23 @@ async function run(command, args, options) {
   })
 }
 
+async function getProjectEnv(projectId, context) {
+  const result = await pool.query(
+    `select key, scope, encrypted_value
+     from project_environment_variables
+     where project_id = $1 and context = $2`,
+    [projectId, context],
+  )
+  const build = {}
+  const runtime = {}
+  for (const row of result.rows) {
+    const value = decryptEnvValue(row.encrypted_value)
+    if (row.scope === "build") build[row.key] = value
+    if (row.scope === "runtime") runtime[row.key] = value
+  }
+  return { build, runtime }
+}
+
 async function claimBuild() {
   const client = await pool.connect()
   try {
@@ -211,7 +253,7 @@ async function claimBuild() {
   }
 }
 
-async function restoreSource(build) {
+async function restoreSource(build, buildEnv) {
   const workspace = path.join(workspaceRoot, build.id)
   await fs.rm(workspace, { recursive: true, force: true })
   await fs.mkdir(workspace, { recursive: true })
@@ -225,7 +267,7 @@ async function restoreSource(build) {
   }
 
   const dockerfile = safeFilePath(workspace, "Dockerfile.llamakit")
-  await fs.writeFile(dockerfile, generatedDockerfile(build), "utf8")
+  await fs.writeFile(dockerfile, generatedDockerfile(build, buildEnv), "utf8")
 
   const dockerignore = safeFilePath(workspace, ".dockerignore")
   try {
@@ -237,8 +279,14 @@ async function restoreSource(build) {
   return { workspace, dockerfile }
 }
 
-function deploymentManifest(project, build, deployment, image) {
+function deploymentManifest(project, build, deployment, image, runtimeEnv) {
   const appName = deployment.service_name || deployment.serviceName
+  const envFrom = Object.keys(runtimeEnv).length
+    ? `          envFrom:
+            - secretRef:
+                name: ${appName}-env
+`
+    : ""
   return `apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -269,6 +317,7 @@ spec:
           env:
             - name: PORT
               value: "3000"
+${envFrom}
           readinessProbe:
             httpGet:
               path: /
@@ -299,6 +348,25 @@ spec:
       port: 80
       targetPort: 3000
   type: ClusterIP
+`
+}
+
+function secretManifest(serviceName, runtimeEnv) {
+  const keys = Object.keys(runtimeEnv)
+  if (!keys.length) return ""
+  const data = keys
+    .sort()
+    .map((key) => `  ${key}: ${Buffer.from(runtimeEnv[key]).toString("base64")}`)
+    .join("\n")
+  return `apiVersion: v1
+kind: Secret
+metadata:
+  name: ${serviceName}-env
+  namespace: ${namespace}
+type: Opaque
+data:
+${data}
+---
 `
 }
 
@@ -421,16 +489,20 @@ async function markBuildFailed(build, error) {
 async function processBuild(build) {
   const project = build
   const image = imageRef(project, build)
+  const context = build.branch === project.production_branch ? "production" : "preview"
+  const projectEnv = await getProjectEnv(project.project_id, context)
   log(`building ${project.slug}/${build.id}`)
 
-  const { workspace, dockerfile } = await restoreSource(build)
+  const { workspace, dockerfile } = await restoreSource(build, projectEnv.build)
   await appendBuildLog(build.id, `[${timestamp()}] Restored source into ${workspace}.\n`)
-  await run("docker", ["build", "-f", dockerfile, "-t", image, workspace], { buildId: build.id })
+  await appendBuildLog(build.id, `[${timestamp()}] Loaded ${Object.keys(projectEnv.build).length} build env and ${Object.keys(projectEnv.runtime).length} runtime env variables for ${context}.\n`)
+  const buildArgs = Object.entries(projectEnv.build).flatMap(([key, value]) => ["--build-arg", `${key}=${value}`])
+  await run("docker", ["build", ...buildArgs, "-f", dockerfile, "-t", image, workspace], { buildId: build.id })
   await run("docker", ["push", image], { buildId: build.id })
 
   const deployment = await createDeploymentRecord(project, build, image)
   await ensureNamespace(build.id)
-  const manifest = deploymentManifest(project, build, deployment, image)
+  const manifest = `${secretManifest(deployment.service_name, projectEnv.runtime)}${deploymentManifest(project, build, deployment, image, projectEnv.runtime)}`
   await applyManifest(build.id, manifest)
   await run("kubectl", ["rollout", "status", `deployment/${deployment.service_name}`, "-n", namespace, "--timeout=180s"], {
     buildId: build.id,

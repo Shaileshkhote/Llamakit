@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto"
+import { createCipheriv, createDecipheriv, createHash, randomBytes, randomUUID } from "node:crypto"
 import { ensureDatabase, getPool, hasDatabase } from "@/lib/db"
 import { env } from "@/lib/env"
 import type {
@@ -10,6 +10,8 @@ import type {
   GitHubWebhookDelivery,
   Project,
   ProjectDomain,
+  ProjectEnvironmentVariable,
+  ProjectPrompt,
   ProjectEnvironmentAlias,
   ProjectFile,
   ProjectFramework,
@@ -17,6 +19,8 @@ import type {
   ProjectSourceConnection,
   ProjectStatus,
   ProjectVersion,
+  EnvironmentContext,
+  EnvironmentScope,
   UpdateProjectInput,
 } from "@/types/platform"
 
@@ -155,6 +159,27 @@ type SourceConnectionRow = {
   updated_at: Date | string
 }
 
+type PromptRow = {
+  id: string
+  project_id: string
+  prompt: string
+  status: ProjectPrompt["status"]
+  created_at: Date | string
+}
+
+type EnvVarRow = {
+  id: string
+  project_id: string
+  key: string
+  context: EnvironmentContext
+  scope: EnvironmentScope
+  encrypted_value: string
+  value_preview: string
+  is_secret: boolean
+  created_at: Date | string
+  updated_at: Date | string
+}
+
 type DeliveryRow = {
   id: string
   delivery_id: string
@@ -180,6 +205,8 @@ const memory = {
   installations: new Map<number, GitHubInstallation>(),
   repositories: new Map<number, GitHubRepository>(),
   sourceConnections: new Map<string, ProjectSourceConnection>(),
+  prompts: new Map<string, ProjectPrompt[]>(),
+  envVars: new Map<string, (ProjectEnvironmentVariable & { encryptedValue: string })[]>(),
   deliveries: new Map<string, GitHubWebhookDelivery>(),
 }
 
@@ -344,6 +371,30 @@ function sourceConnectionFromRow(row: SourceConnectionRow): ProjectSourceConnect
   }
 }
 
+function promptFromRow(row: PromptRow): ProjectPrompt {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    prompt: row.prompt,
+    status: row.status,
+    createdAt: iso(row.created_at) ?? now(),
+  }
+}
+
+function envVarFromRow(row: EnvVarRow): ProjectEnvironmentVariable {
+  return {
+    id: row.id,
+    projectId: row.project_id,
+    key: row.key,
+    context: row.context,
+    scope: row.scope,
+    valuePreview: row.value_preview,
+    isSecret: row.is_secret,
+    createdAt: iso(row.created_at) ?? now(),
+    updatedAt: iso(row.updated_at) ?? now(),
+  }
+}
+
 function deliveryFromRow(row: DeliveryRow): GitHubWebhookDelivery {
   return {
     id: row.id,
@@ -401,6 +452,45 @@ export function normalizeFilePath(value: string) {
     .slice(0, 240)
 
   return normalized || "README.md"
+}
+
+function envEncryptionKey() {
+  const source = env.ENV_ENCRYPTION_KEY || env.DATABASE_URL || "llamakit-local-development-key"
+  return createHash("sha256").update(source).digest()
+}
+
+function encryptEnvValue(value: string) {
+  const iv = randomBytes(12)
+  const cipher = createCipheriv("aes-256-gcm", envEncryptionKey(), iv)
+  const encrypted = Buffer.concat([cipher.update(value, "utf8"), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return `${iv.toString("base64url")}.${tag.toString("base64url")}.${encrypted.toString("base64url")}`
+}
+
+function decryptEnvValue(payload: string) {
+  const [ivPart, tagPart, encryptedPart] = payload.split(".")
+  if (!ivPart || !tagPart || !encryptedPart) return ""
+  const decipher = createDecipheriv("aes-256-gcm", envEncryptionKey(), Buffer.from(ivPart, "base64url"))
+  decipher.setAuthTag(Buffer.from(tagPart, "base64url"))
+  return Buffer.concat([
+    decipher.update(Buffer.from(encryptedPart, "base64url")),
+    decipher.final(),
+  ]).toString("utf8")
+}
+
+export function normalizeEnvKey(value: string) {
+  return value
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9_]/g, "_")
+    .replace(/^_+/, "")
+    .slice(0, 80)
+}
+
+function envValuePreview(value: string) {
+  if (!value) return "empty"
+  if (value.length <= 4) return "••••"
+  return `••••${value.slice(-4)}`
 }
 
 function starterFiles(project: Project): ProjectSourceFile[] {
@@ -1230,6 +1320,21 @@ export async function upsertGitHubInstallation(input: {
   )
 }
 
+export async function listGitHubInstallations(userId: string) {
+  return withDatabase(
+    async () => {
+      const pool = getPool()
+      if (!pool) return []
+      const result = await pool.query<GitHubInstallationRow>(
+        "select * from github_installations where user_id = $1 order by updated_at desc",
+        [userId],
+      )
+      return result.rows.map(githubInstallationFromRow)
+    },
+    () => [...memory.installations.values()].filter((installation) => installation.userId === userId),
+  )
+}
+
 export async function listGitHubRepositories(userId: string) {
   return withDatabase(
     async () => {
@@ -1346,6 +1451,181 @@ export async function findSourceConnectionsByRepo(repositoryId: number, branch: 
     () =>
       [...memory.sourceConnections.values()].filter(
         (connection) => connection.repositoryId === repositoryId && connection.branch === branch,
+      ),
+  )
+}
+
+export async function getProjectSourceConnection(projectId: string) {
+  return withDatabase(
+    async () => {
+      const pool = getPool()
+      if (!pool) return undefined
+      const result = await pool.query<SourceConnectionRow>(
+        "select * from project_source_connections where project_id = $1 limit 1",
+        [projectId],
+      )
+      return result.rows[0] ? sourceConnectionFromRow(result.rows[0]) : undefined
+    },
+    () => memory.sourceConnections.get(projectId),
+  )
+}
+
+export async function createProjectPrompt(projectId: string, prompt: string) {
+  const item: ProjectPrompt = {
+    id: randomUUID(),
+    projectId,
+    prompt,
+    status: "coming_soon",
+    createdAt: now(),
+  }
+
+  return withDatabase(
+    async () => {
+      const pool = getPool()
+      if (!pool) return item
+      const result = await pool.query<PromptRow>(
+        `insert into project_prompts (id, project_id, prompt, status, created_at)
+         values ($1, $2, $3, 'coming_soon', now())
+         returning *`,
+        [item.id, item.projectId, item.prompt],
+      )
+      return promptFromRow(result.rows[0])
+    },
+    () => {
+      const prompts = memory.prompts.get(projectId) ?? []
+      memory.prompts.set(projectId, [item, ...prompts])
+      return item
+    },
+  )
+}
+
+export async function listProjectPrompts(projectId: string) {
+  return withDatabase(
+    async () => {
+      const pool = getPool()
+      if (!pool) return []
+      const result = await pool.query<PromptRow>(
+        "select * from project_prompts where project_id = $1 order by created_at desc limit 20",
+        [projectId],
+      )
+      return result.rows.map(promptFromRow)
+    },
+    () => memory.prompts.get(projectId) ?? [],
+  )
+}
+
+export async function listProjectEnvironmentVariables(projectId: string) {
+  return withDatabase(
+    async () => {
+      const pool = getPool()
+      if (!pool) return []
+      const result = await pool.query<EnvVarRow>(
+        `select * from project_environment_variables
+         where project_id = $1
+         order by context asc, scope asc, key asc`,
+        [projectId],
+      )
+      return result.rows.map(envVarFromRow)
+    },
+    () => (memory.envVars.get(projectId) ?? []).map(({ encryptedValue: _encryptedValue, ...item }) => item),
+  )
+}
+
+export async function upsertProjectEnvironmentVariable(input: {
+  projectId: string
+  key: string
+  value: string
+  context: EnvironmentContext
+  scope: EnvironmentScope
+}) {
+  const key = normalizeEnvKey(input.key)
+  if (!key) throw new Error("Environment variable key is required.")
+  const encryptedValue = encryptEnvValue(input.value)
+  const timestamp = now()
+  const item: ProjectEnvironmentVariable & { encryptedValue: string } = {
+    id: randomUUID(),
+    projectId: input.projectId,
+    key,
+    context: input.context,
+    scope: input.scope,
+    valuePreview: envValuePreview(input.value),
+    isSecret: true,
+    encryptedValue,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  }
+
+  return withDatabase(
+    async () => {
+      const pool = getPool()
+      if (!pool) return item
+      const result = await pool.query<EnvVarRow>(
+        `insert into project_environment_variables (
+          id, project_id, key, context, scope, encrypted_value, value_preview, is_secret, created_at, updated_at
+        ) values ($1,$2,$3,$4,$5,$6,$7,true,now(),now())
+        on conflict (project_id, key, context, scope) do update set
+          encrypted_value = excluded.encrypted_value,
+          value_preview = excluded.value_preview,
+          is_secret = true,
+          updated_at = now()
+        returning *`,
+        [item.id, item.projectId, item.key, item.context, item.scope, item.encryptedValue, item.valuePreview],
+      )
+      return envVarFromRow(result.rows[0])
+    },
+    () => {
+      const items = memory.envVars.get(input.projectId) ?? []
+      const next = [
+        item,
+        ...items.filter(
+          (existing) =>
+            !(existing.key === item.key && existing.context === item.context && existing.scope === item.scope),
+        ),
+      ]
+      memory.envVars.set(input.projectId, next)
+      const { encryptedValue: _encryptedValue, ...publicItem } = item
+      return publicItem
+    },
+  )
+}
+
+export async function deleteProjectEnvironmentVariable(projectId: string, envId: string) {
+  return withDatabase(
+    async () => {
+      const pool = getPool()
+      if (!pool) return false
+      const result = await pool.query(
+        "delete from project_environment_variables where project_id = $1 and id = $2",
+        [projectId, envId],
+      )
+      return (result.rowCount ?? 0) > 0
+    },
+    () => {
+      const items = memory.envVars.get(projectId) ?? []
+      const next = items.filter((item) => item.id !== envId)
+      memory.envVars.set(projectId, next)
+      return next.length !== items.length
+    },
+  )
+}
+
+export async function getDecryptedProjectEnvironment(projectId: string, context: EnvironmentContext) {
+  return withDatabase(
+    async () => {
+      const pool = getPool()
+      if (!pool) return {}
+      const result = await pool.query<EnvVarRow>(
+        `select * from project_environment_variables
+         where project_id = $1 and context = $2`,
+        [projectId, context],
+      )
+      return Object.fromEntries(result.rows.map((row) => [row.key, decryptEnvValue(row.encrypted_value)]))
+    },
+    () =>
+      Object.fromEntries(
+        (memory.envVars.get(projectId) ?? [])
+          .filter((item) => item.context === context)
+          .map((item) => [item.key, decryptEnvValue(item.encryptedValue)]),
       ),
   )
 }

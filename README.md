@@ -88,6 +88,17 @@ LLAMAKIT_BUILD_WORKSPACE=/tmp/llamakit-builds
 
 The VPS systemd template lives at `ops/llamakit-build-worker.service`.
 
+## Dashboard Control Plane
+
+Logged-in users land on `/dashboard`, which lists their projects first. New projects start from
+`/dashboard/new` with two paths:
+
+- AI Code: editor/file explorer preview marked as coming soon.
+- Import from GitHub: searchable repository picker, setup prefill, queued build, project workspace.
+
+Project environment variables are encrypted before storage. Set `ENV_ENCRYPTION_KEY` in production;
+updates apply to future builds/deployments.
+
 ## Seed Analytics Sites
 
 Seed fixtures live in `lib/seeds`:

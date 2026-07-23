@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
 import { deleteProject, getOwnedProjectBySlug, patchProject } from "@/lib/platform/store"
+import type { ProjectFramework } from "@/types/platform"
 
 export const dynamic = "force-dynamic"
+
+const frameworks = new Set<ProjectFramework>(["nextjs", "vite", "static"])
 
 type Params = {
   params: Promise<{ projectSlug: string }>
@@ -40,6 +43,8 @@ export async function PATCH(request: Request, context: Params) {
     buildCommand: typeof body?.buildCommand === "string" ? body.buildCommand.trim() : undefined,
     startCommand: typeof body?.startCommand === "string" ? body.startCommand.trim() : undefined,
     rootDirectory: typeof body?.rootDirectory === "string" ? body.rootDirectory.trim() : undefined,
+    productionBranch: typeof body?.productionBranch === "string" ? body.productionBranch.trim() : undefined,
+    framework: frameworks.has(body?.framework) ? body.framework : undefined,
   })
 
   if (!project) {

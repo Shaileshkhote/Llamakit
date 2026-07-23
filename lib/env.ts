@@ -15,7 +15,8 @@ const envSchema = z.object({
   GITHUB_APP_ID: z.string().optional(),
   GITHUB_APP_SLUG: z.string().optional(),
   GITHUB_APP_PRIVATE_KEY: z.string().optional(),
-  GITHUB_WEBHOOK_SECRET: z.string().optional()
+  GITHUB_WEBHOOK_SECRET: z.string().optional(),
+  ENV_ENCRYPTION_KEY: z.string().optional()
 })
 
 export const env = envSchema.parse({
@@ -33,5 +34,6 @@ export const env = envSchema.parse({
   GITHUB_APP_ID: process.env.GITHUB_APP_ID,
   GITHUB_APP_SLUG: process.env.GITHUB_APP_SLUG,
   GITHUB_APP_PRIVATE_KEY: process.env.GITHUB_APP_PRIVATE_KEY,
-  GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET
+  GITHUB_WEBHOOK_SECRET: process.env.GITHUB_WEBHOOK_SECRET,
+  ENV_ENCRYPTION_KEY: process.env.ENV_ENCRYPTION_KEY
 })

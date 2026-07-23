@@ -7,6 +7,8 @@ export type DomainStatus = "pending" | "verifying" | "active" | "failed"
 export type DomainType = "default" | "custom"
 export type ClusterStatus = "planned" | "active" | "disabled"
 export type SourceProvider = "manual" | "github"
+export type EnvironmentContext = "production" | "preview" | "development"
+export type EnvironmentScope = "build" | "runtime"
 
 export type Project = {
   id: string
@@ -170,6 +172,26 @@ export type GitHubRepository = {
   defaultBranch: string
   private: boolean
   updatedAt: string
+}
+
+export type ProjectEnvironmentVariable = {
+  id: string
+  projectId: string
+  key: string
+  context: EnvironmentContext
+  scope: EnvironmentScope
+  valuePreview: string
+  isSecret: boolean
+  createdAt: string
+  updatedAt: string
+}
+
+export type ProjectPrompt = {
+  id: string
+  projectId: string
+  prompt: string
+  status: "coming_soon"
+  createdAt: string
 }
 
 export type ProjectSourceConnection = {

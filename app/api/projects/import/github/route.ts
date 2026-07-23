@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
 import { fetchRepositoryFiles } from "@/lib/github/app"
+import { detectProjectSetup } from "@/lib/platform/detect"
 import {
   createProject,
   createSourceConnection,
   listGitHubRepositories,
+  patchProject,
   queueBuild,
   replaceProjectFiles,
 } from "@/lib/platform/store"
@@ -23,7 +25,6 @@ export async function POST(request: Request) {
 
   const branch = String(body?.branch || repo.defaultBranch || "main")
   const rootDirectory = String(body?.rootDirectory || ".")
-  const framework = frameworks.has(body?.framework) ? body.framework : "nextjs"
   const files = await fetchRepositoryFiles({
     installationId: repo.installationId,
     owner: repo.ownerLogin,
@@ -32,6 +33,8 @@ export async function POST(request: Request) {
     rootDirectory,
   })
   if (!files.length) return NextResponse.json({ error: "No importable files found in repository." }, { status: 400 })
+  const detected = detectProjectSetup(files)
+  const framework = frameworks.has(body?.framework) ? body.framework : detected.framework
 
   const project = await createProject({
     ownerUserId: user.id,
@@ -43,6 +46,23 @@ export async function POST(request: Request) {
     sourceProvider: "github",
   })
   await replaceProjectFiles(project.id, files)
+  const configuredProject = await patchProject(project.slug, {
+    framework,
+    installCommand:
+      typeof body?.installCommand === "string" && body.installCommand.trim()
+        ? body.installCommand.trim()
+        : detected.installCommand,
+    buildCommand:
+      typeof body?.buildCommand === "string" && body.buildCommand.trim()
+        ? body.buildCommand.trim()
+        : detected.buildCommand,
+    startCommand:
+      typeof body?.startCommand === "string" && body.startCommand.trim()
+        ? body.startCommand.trim()
+        : detected.startCommand,
+    rootDirectory,
+    productionBranch: branch,
+  })
   await createSourceConnection({
     projectId: project.id,
     provider: "github",
@@ -55,5 +75,5 @@ export async function POST(request: Request) {
     rootDirectory,
   })
   const build = await queueBuild(project.id, { branch })
-  return NextResponse.json({ project, build }, { status: 201 })
+  return NextResponse.json({ project: configuredProject ?? project, build, detected }, { status: 201 })
 }
