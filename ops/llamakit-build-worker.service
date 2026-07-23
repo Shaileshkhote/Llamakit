@@ -1,0 +1,20 @@
+[Unit]
+Description=LlamaKit project build worker
+After=network-online.target docker.service k3s.service postgresql@16-llamakit.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/root/llamakit-worker
+EnvironmentFile=/root/llamakit-db.env
+Environment=PATH=/root/.nvm/versions/node/v24.17.0/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+Environment=NEXT_PUBLIC_ROOT_DOMAIN=llamakit.shaileshk.xyz
+Environment=LLAMAKIT_PROJECT_NAMESPACE=llamakit-projects
+Environment=LLAMAKIT_REGISTRY_URL=localhost:5000
+Environment=LLAMAKIT_BUILD_WORKSPACE=/tmp/llamakit-builds
+ExecStart=/root/.nvm/versions/node/v24.17.0/bin/node /root/llamakit-worker/llamakit-build-worker.mjs
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

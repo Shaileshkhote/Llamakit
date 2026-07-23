@@ -43,7 +43,7 @@ describe("platform project store", () => {
     const builds = await store.listBuilds(project.id)
 
     expect(build.status).toBe("queued")
-    expect(build.logs).toContain("Kubernetes build worker")
+    expect(build.logs).toContain("LlamaKit build worker")
     expect(builds[0].versionId).toBe(build.versionId)
   })
 

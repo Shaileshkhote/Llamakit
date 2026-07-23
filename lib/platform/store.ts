@@ -792,7 +792,7 @@ export async function queueBuild(
     imageRef: null,
     branch: version.branch,
     commitSha: version.commitSha,
-    logs: "Build queued. Kubernetes build worker is not connected yet.",
+    logs: "Build queued. Waiting for the LlamaKit build worker.",
     startedAt: null,
     finishedAt: null,
     createdAt: now(),

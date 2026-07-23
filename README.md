@@ -67,6 +67,27 @@ pnpm typecheck
 pnpm build
 ```
 
+## Build Worker
+
+Queued project builds are executed by a host-side worker. The worker restores the immutable
+`project_versions.source_snapshot`, builds and pushes a Docker image to the local registry, then
+creates a Kubernetes deployment/service in `llamakit-projects`.
+
+```bash
+pnpm worker:builds
+pnpm worker:builds:once
+```
+
+Production defaults:
+
+```bash
+LLAMAKIT_PROJECT_NAMESPACE=llamakit-projects
+LLAMAKIT_REGISTRY_URL=localhost:5000
+LLAMAKIT_BUILD_WORKSPACE=/tmp/llamakit-builds
+```
+
+The VPS systemd template lives at `ops/llamakit-build-worker.service`.
+
 ## Seed Analytics Sites
 
 Seed fixtures live in `lib/seeds`:

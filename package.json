@@ -11,6 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lint": "oxlint .",
+    "worker:builds": "node scripts/llamakit-build-worker.mjs",
+    "worker:builds:once": "node scripts/llamakit-build-worker.mjs --once",
     "format": "oxfmt --write ."
   },
   "dependencies": {
