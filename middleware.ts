@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server"
 
 const sessionCookieName = "llamakit_session"
 
-const publicApiPrefixes = ["/api/auth", "/api/webhooks/github"]
+const publicApiPrefixes = ["/api/auth", "/api/webhooks/github", "/api/github/installations/callback"]
 
 function requiresSession(pathname: string) {
   if (pathname.startsWith("/dashboard")) return true
