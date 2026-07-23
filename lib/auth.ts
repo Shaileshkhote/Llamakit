@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto"
 import bcrypt from "bcryptjs"
 import type { NextResponse } from "next/server"
-import { createUserSession, deleteUserSession, getUserById, getUserSessionByTokenHash } from "@/lib/tenancy/store"
+import { createUserSession, deleteUserSession, getUserById, getUserSessionByTokenHash } from "@/lib/platform/auth-store"
 import type { User } from "@/types/auth"
 
 export const SESSION_COOKIE_NAME = "llamakit_session"

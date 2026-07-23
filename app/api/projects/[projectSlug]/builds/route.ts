@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server"
-import { getProjectBySlug, listBuilds, queueBuild } from "@/lib/platform/store"
+import { getCurrentUser } from "@/lib/auth"
+import { getOwnedProjectBySlug, listBuilds, queueBuild } from "@/lib/platform/store"
 
 export const dynamic = "force-dynamic"
 
@@ -8,8 +9,10 @@ type Params = {
 }
 
 export async function GET(_request: Request, context: Params) {
+  const user = await getCurrentUser(_request)
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { projectSlug } = await context.params
-  const project = await getProjectBySlug(projectSlug)
+  const project = await getOwnedProjectBySlug(projectSlug, user.id)
 
   if (!project) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 })
@@ -19,8 +22,10 @@ export async function GET(_request: Request, context: Params) {
 }
 
 export async function POST(_request: Request, context: Params) {
+  const user = await getCurrentUser(_request)
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { projectSlug } = await context.params
-  const project = await getProjectBySlug(projectSlug)
+  const project = await getOwnedProjectBySlug(projectSlug, user.id)
 
   if (!project) {
     return NextResponse.json({ error: "Project not found." }, { status: 404 })
