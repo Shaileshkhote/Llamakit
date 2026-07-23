@@ -23,6 +23,8 @@ function cleanHost(value: string | null) {
 
 function isControlPlaneHost(hostname: string) {
   if (!hostname) return true
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(hostname)) return true
+  if (hostname === "::1") return true
   if (appHosts.has(hostname)) return true
   return hostname === rootDomain
 }
