@@ -1,8 +1,5 @@
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ui/ThemeToggle";
-import { getPublishedPublicAnalyticsSites } from "@/lib/tenancy/store";
-
-export const dynamic = "force-dynamic";
 
 const protocolOrbit = [
   {
@@ -78,17 +75,33 @@ const cardIndexClasses = [
   "[--card-index:5]",
 ];
 
-export default async function HomePage() {
-  const { sites } = await getPublishedPublicAnalyticsSites({ limit: 6 });
+const projectCards = [
+  {
+    title: "Custom code",
+    copy: "Write the analytics experience your protocol actually wants instead of fighting a fixed template.",
+    tags: ["Next.js", "Source editor", "Snapshots"],
+  },
+  {
+    title: "Cluster deploys",
+    copy: "Queue builds, turn source into containers, and deploy projects onto the LlamaKit Kubernetes layer.",
+    tags: ["Builds", "Registry", "Ingress"],
+  },
+  {
+    title: "Protocol domains",
+    copy: "Attach analytics.protocol.com once the deployment and DNS checks are ready.",
+    tags: ["Custom DNS", "TLS", "Routing"],
+  },
+];
 
+export default function HomePage() {
   return (
     <main className="lk-home mx-auto w-[min(1160px,calc(100vw-40px))] pb-14 max-[760px]:w-[min(1160px,calc(100vw-24px))]">
       <nav className="lk-home-nav flex items-center justify-between gap-[18px] py-[22px] max-[760px]:flex-col max-[760px]:items-start">
         <Link className="inline-flex items-center gap-2.5 text-[15px] font-bold" href="/">
           <span className="grid size-[30px] place-items-center rounded-full border border-[var(--border)] bg-[var(--text)] text-xs text-[var(--surface)]">
-            DL
+            LK
           </span>
-          <span>DefiLlama</span>
+          <span>LlamaKit</span>
         </Link>
         <div className="flex flex-wrap gap-2.5">
           <ThemeToggle />
@@ -96,10 +109,10 @@ export default async function HomePage() {
             className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-[11px] py-[7px] text-xs leading-none text-[var(--muted)]"
             href="/dashboard"
           >
-            Dashboard
+            Studio
           </Link>
           <span className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-[11px] py-[7px] text-xs leading-none text-[var(--muted)]">
-            Unofficial LlamaKit prototype
+            Custom analytics deploys
           </span>
         </div>
       </nav>
@@ -108,27 +121,27 @@ export default async function HomePage() {
         <div className="grid grid-cols-[minmax(0,1fr)_minmax(500px,560px)] items-center gap-[clamp(34px,5vw,72px)] max-[1180px]:grid-cols-1 max-[900px]:gap-8 max-[640px]:gap-4">
           <div className="min-w-0">
             <p className="lk-home-kicker text-[13px] font-semibold text-[var(--muted)]">
-              Analytics sites for protocols
+              Custom sites for protocol teams
             </p>
             <h1 className="lk-hero-title mt-0 mb-0 max-w-[720px] text-balance text-[clamp(46px,5.8vw,72px)] leading-[0.98] tracking-normal max-[760px]:text-[clamp(38px,11vw,52px)]">
-              Launch a metrics dashboard without building the data stack
+              Build and deploy analytics sites from your own code
             </h1>
             <p className="lk-hero-copy mt-5 max-w-[650px] text-[18px] leading-[1.6] text-[var(--muted)] max-[760px]:text-[17px] max-[760px]:leading-[1.55] max-[640px]:mt-4 max-[640px]:text-[15px]">
-              LlamaKit gives teams a hosted analytics site powered by DefiLlama-verified data
-              endpoints, so they can publish TVL, volume, fees, revenue, and source provenance
-              without coding the ingestion layer or charting system themselves.
+              LlamaKit is a Lovable-style platform for protocol analytics: create a custom site,
+              edit the source, build it into a deployable app, and route it to the protocol domain
+              without owning the infrastructure stack yourself.
             </p>
             <div className="mt-7 flex flex-wrap gap-3">
               <Link
                 className="lk-home-cta inline-flex min-h-[42px] items-center justify-center rounded-lg border border-[var(--text)] bg-[var(--text)] px-[18px] text-sm font-bold text-[var(--surface)]"
-                href="/signup"
+                href="/dashboard"
               >
-                Create analytics site
+                Create custom project
               </Link>
             </div>
           </div>
 
-          <div className="lk-data-orbit" aria-label="DefiLlama verified data network">
+          <div className="lk-data-orbit" aria-label="Protocol analytics deployment network">
             <span className="lk-data-orbit-aura" />
             <svg aria-hidden="true" className="lk-data-orbit-lines" preserveAspectRatio="none" viewBox="0 0 560 430">
               <path d="M81 111 C148 120 216 164 280 215" />
@@ -165,35 +178,29 @@ export default async function HomePage() {
       </section>
 
       <section className="lk-home-dashboards py-2 pb-[18px]">
-        <h2 className="mb-[18px] mt-0 text-[28px]">Explore LlamaKit-powered analytics sites</h2>
+        <h2 className="mb-[18px] mt-0 text-[28px]">From source code to protocol-owned analytics</h2>
         <div className="grid grid-cols-12 gap-3.5 max-[760px]:grid-cols-1">
-          {sites.map((site, index) => (
+          {projectCards.map((card, index) => (
             <Link
               className={`lk-home-dashboard-card group col-span-4 min-h-[190px] min-w-0 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 max-[760px]:col-span-1 ${cardIndexClasses[index] ?? cardIndexClasses.at(-1)}`}
-              href={site.defaultUrl}
-              key={site.slug}
+              href="/dashboard"
+              key={card.title}
             >
               <div className="flex justify-between gap-3.5">
                 <div>
-                  <h3 className="m-0 text-2xl">{site.displayName}</h3>
-                  <p className="leading-[1.55] text-[var(--muted)]">{site.protocolDescription}</p>
+                  <h3 className="m-0 text-2xl">{card.title}</h3>
+                  <p className="leading-[1.55] text-[var(--muted)]">{card.copy}</p>
                 </div>
-                {site.logoUrl ? (
-                  <img alt="" src={site.logoUrl} className="size-[42px] rounded-full" />
-                ) : null}
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                {Object.entries(site.capabilities)
-                  .filter(([, enabled]) => enabled)
-                  .slice(0, 4)
-                  .map(([capability]) => (
-                    <span
-                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-[11px] py-[7px] text-xs leading-none text-[var(--muted)] transition group-hover:-translate-y-px group-hover:bg-[var(--surface)] group-hover:text-[var(--text)]"
-                      key={capability}
-                    >
-                      {capability}
-                    </span>
-                  ))}
+                {card.tags.map((tag) => (
+                  <span
+                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[var(--border)] bg-[var(--surface-muted)] px-[11px] py-[7px] text-xs leading-none text-[var(--muted)] transition group-hover:-translate-y-px group-hover:bg-[var(--surface)] group-hover:text-[var(--text)]"
+                    key={tag}
+                  >
+                    {tag}
+                  </span>
+                ))}
               </div>
             </Link>
           ))}
@@ -201,7 +208,7 @@ export default async function HomePage() {
       </section>
 
       <footer className="mt-[34px] text-xs text-[var(--soft)]">
-        Unofficial LlamaKit prototype. Data provided by DefiLlama.
+        LlamaKit prototype. Custom-code analytics sites for protocol teams.
       </footer>
     </main>
   );

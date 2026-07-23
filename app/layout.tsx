@@ -6,7 +6,7 @@ import "./globals.css"
 
 export const metadata: Metadata = {
   title: "LlamaKit",
-  description: "Unofficial multi-tenant analytics portals powered by DefiLlama data."
+  description: "Custom-code analytics site platform for protocol teams."
 }
 
 const themeScript = `
