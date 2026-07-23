@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server"
 import { getCurrentUser } from "@/lib/auth"
 import { fetchInstallationRepositories } from "@/lib/github/app"
+import { getAppRedirectUrl } from "@/lib/github/oauth"
 import { upsertGitHubInstallation, upsertGitHubRepository } from "@/lib/platform/store"
 import { randomUUID } from "node:crypto"
 
 export async function GET(request: Request) {
   const user = await getCurrentUser(request)
-  if (!user) return NextResponse.redirect(new URL("/login", request.url))
+  if (!user) return NextResponse.redirect(getAppRedirectUrl(request, "/login"))
   const url = new URL(request.url)
   const installationId = Number(url.searchParams.get("installation_id"))
-  if (!installationId) return NextResponse.redirect(new URL("/dashboard?github=missing_installation", request.url))
+  if (!installationId) return NextResponse.redirect(getAppRedirectUrl(request, "/dashboard?github=missing_installation"))
 
   const repos = await fetchInstallationRepositories(installationId)
   const first = repos[0]
@@ -33,5 +34,5 @@ export async function GET(request: Request) {
     })
   }
 
-  return NextResponse.redirect(new URL("/dashboard?github=installed", request.url))
+  return NextResponse.redirect(getAppRedirectUrl(request, "/dashboard?github=installed"))
 }

@@ -6,6 +6,10 @@ export function getAppUrl(request: Request) {
   return `${url.protocol}//${url.host}`
 }
 
+export function getAppRedirectUrl(request: Request, path: string) {
+  return new URL(path, `${getAppUrl(request)}/`)
+}
+
 export function requireGitHubOAuthEnv() {
   if (!env.GITHUB_CLIENT_ID || !env.GITHUB_CLIENT_SECRET) {
     throw new Error("GitHub OAuth is not configured.")

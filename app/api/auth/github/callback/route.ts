@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { createSession, normalizeEmail, setSessionCookie } from "@/lib/auth"
-import { exchangeGitHubCode, fetchGitHubPrimaryEmail, fetchGitHubUser } from "@/lib/github/oauth"
+import { exchangeGitHubCode, fetchGitHubPrimaryEmail, fetchGitHubUser, getAppRedirectUrl } from "@/lib/github/oauth"
 import { createUser, getOAuthAccount, getUserByEmail, getUserById, upsertOAuthAccount } from "@/lib/platform/auth-store"
 
 export async function GET(request: Request) {
@@ -15,7 +15,7 @@ export async function GET(request: Request) {
     ?.split("=")[1]
 
   if (!code || !state || !expectedState || state !== decodeURIComponent(expectedState)) {
-    return NextResponse.redirect(new URL("/login?error=invalid_github_state", request.url))
+    return NextResponse.redirect(getAppRedirectUrl(request, "/login?error=invalid_github_state"))
   }
 
   const accessToken = await exchangeGitHubCode(code, request)
@@ -39,7 +39,7 @@ export async function GET(request: Request) {
   })
 
   const session = await createSession(user.id)
-  const response = NextResponse.redirect(new URL("/dashboard", request.url))
+  const response = NextResponse.redirect(getAppRedirectUrl(request, "/dashboard"))
   response.cookies.delete("llamakit_github_oauth_state")
   setSessionCookie(response, session.token, session.expiresAt, request)
   return response
