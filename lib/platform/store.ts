@@ -939,6 +939,60 @@ export async function listDeployments(projectId: string) {
   )
 }
 
+export async function resolveDeploymentByHostname(hostname: string) {
+  const cleanHostname = hostname.trim().toLowerCase()
+  if (!cleanHostname) return undefined
+
+  return withDatabase(
+    async () => {
+      const pool = getPool()
+      if (!pool) return undefined
+
+      const preview = await pool.query<DeploymentRow>(
+        `select *
+         from deployments
+         where lower(preview_hostname) = $1
+           and status = 'active'
+         order by created_at desc
+         limit 1`,
+        [cleanHostname],
+      )
+      if (preview.rows[0]) return deploymentFromRow(preview.rows[0])
+
+      const production = await pool.query<DeploymentRow>(
+        `select d.*
+         from project_domains pd
+         join project_environment_aliases pea
+           on pea.project_id = pd.project_id
+          and pea.environment = 'production'
+         join deployments d
+           on d.id = pea.deployment_id
+         where lower(pd.hostname) = $1
+           and d.status = 'active'
+         order by pd.is_primary desc, d.promoted_at desc nulls last, d.created_at desc
+         limit 1`,
+        [cleanHostname],
+      )
+      return production.rows[0] ? deploymentFromRow(production.rows[0]) : undefined
+    },
+    () => {
+      const preview = [...memory.deployments.values()]
+        .flat()
+        .find((deployment) => deployment.previewHostname?.toLowerCase() === cleanHostname && deployment.status === "active")
+      if (preview) return preview
+
+      for (const domains of memory.domains.values()) {
+        const domain = domains.find((item) => item.hostname.toLowerCase() === cleanHostname)
+        if (!domain) continue
+        const alias = memory.aliases.get(domain.projectId)
+        if (!alias) continue
+        return memory.deployments.get(domain.projectId)?.find((deployment) => deployment.id === alias.deploymentId && deployment.status === "active")
+      }
+      return undefined
+    },
+  )
+}
+
 export async function createDeployment(
   project: Project,
   build: Build,
